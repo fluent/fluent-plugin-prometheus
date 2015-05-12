@@ -1,3 +1,13 @@
 language: ruby
+
 rvm:
-  - 2.1.5
+  - 2.1
+  - 2.2
+
+gemfile:
+  - Gemfile
+
+script:
+  - bundle exec rake spec
+
+sudo: false
