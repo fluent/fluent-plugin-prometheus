@@ -1,5 +1,7 @@
 # fluent-plugin-prometheus, a plugin for [Fluentd](http://fluentd.org)
 
+[![Build Status](https://travis-ci.org/kazegusuri/fluent-plugin-prometheus.svg?branch=master)](https://travis-ci.org/kazegusuri/fluent-plugin-prometheus)
+
 TODO
 
 ## Installation
