@@ -1,6 +1,5 @@
 require 'prometheus/client'
 require 'prometheus/client/formats/text'
-require 'fluent/mixin/rewrite_tag_name'
 
 module Fluent
   module Prometheus
@@ -12,14 +11,11 @@ module Fluent
         raise ConfigError, "labels section must have at most 1"
       end
 
-      placeholder_expander = Fluent::Mixin::RewriteTagName::PlaceholderExpander.new
-      placeholder_expander.set_hostname(Socket.gethostname)
-
       base_labels = {}
       unless labels.empty?
         labels.first.each do |key, value|
           labels.first.has_key?(key)
-          base_labels[key.to_sym] = placeholder_expander.expand(value)
+          base_labels[key.to_sym] = value
         end
       end
 
@@ -45,11 +41,42 @@ module Fluent
       metrics
     end
 
+    def self.placeholder_expnader(log)
+      # Use internal class in order to expand placeholder
+      if defined?(Fluent::Filter) # for v0.12, built-in PlaceholderExpander
+        begin
+          require 'fluent/plugin/filter_record_transformer'
+          return Fluent::RecordTransformerFilter::PlaceholderExpander.new(log)
+        rescue LoadError => e
+          raise ConfigError, "cannot find filter_record_transformer plugin: #{e.message}"
+        end
+      else # for v0.10, use PlaceholderExapander in fluent-plugin-record-reformer plugin
+        begin
+          require 'fluent/plugin/out_record_reformer.rb'
+          return Fluent::RecordReformerOutput::PlaceholderExpander.new(log)
+        rescue LoadError => e
+          raise ConfigError, "cannot find fluent-plugin-record-reformer: #{e.message}"
+        end
+      end
+    end
+
+    def configure(conf)
+      super
+      @placeholder_expander = Fluent::Prometheus.placeholder_expnader(log)
+      @hostname = Socket.gethostname
+    end
+
     def instrument(tag, es, metrics)
+      placeholder_options = {
+        'tag' => tag,
+        'hostname' => @hostname,
+      }
+
       es.each do |time, record|
+        @placeholder_expander.prepare_placeholders(time, record, placeholder_options)
         metrics.each do |metric|
           begin
-            metric.instrument(record)
+            metric.instrument(record, @placeholder_expander)
           rescue => e
             log.warn "prometheus: failed to instrument a metric.", error_class: e.class, error: e, tag: tag, name: metric.name
             router.emit_error_event(tag, time, record, e)
@@ -79,11 +106,13 @@ module Fluent
         @base_labels = labels.merge(@base_labels)
       end
 
-      def labels(record)
-        # TODO: enable to specify labels with record value
-        @base_labels
+      def labels(record, expander)
+        label = {}
+        @base_labels.each do |k, v|
+          label[k] = expander.expand(v)
+        end
+        label
       end
-
 
       def self.get(registry, name, type, docstring)
         metric = registry.get(name)
@@ -111,9 +140,9 @@ module Fluent
         @key = element['key']
       end
 
-      def instrument(record)
+      def instrument(record, expander)
         if record[@key]
-          @gauge.set(labels(record), record[@key])
+          @gauge.set(labels(record, expander), record[@key])
         end
       end
     end
@@ -129,9 +158,9 @@ module Fluent
         @key = element['key']
       end
 
-      def instrument(record)
+      def instrument(record, expander)
         if record[@key]
-          @counter.increment(labels(record), record[@key])
+          @counter.increment(labels(record, expander), record[@key])
         end
       end
     end
@@ -147,9 +176,9 @@ module Fluent
         @key = element['key']
       end
 
-      def instrument(record)
+      def instrument(record, expander)
         if record[@key]
-          @summary.add(labels(record), record[@key])
+          @summary.add(labels(record, expander), record[@key])
         end
       end
     end

@@ -15,11 +15,13 @@ module Fluent
 
     def configure(conf)
       super
-
-      @placeholder_expander = Fluent::Mixin::RewriteTagName::PlaceholderExpander.new
-      @placeholder_expander.set_hostname(Socket.gethostname)
-
+      hostname = Socket.gethostname
+      expander = Fluent::Prometheus.placeholder_expnader(log)
+      expander.prepare_placeholders(Time.now.to_i, {}, {'hostname' => hostname})
       @base_labels = Fluent::Prometheus.parse_labels_elements(conf)
+      @base_labels.each do |key, value|
+        @base_labels[key] = expander.expand(value)
+      end
 
       @monitor_agent = MonitorAgentInput.new
 
