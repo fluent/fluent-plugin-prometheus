@@ -66,4 +66,4 @@ describe Fluent::PrometheusFilter do
       end
     end
   end
-end
+end if defined?(Fluent::PrometheusFilter)

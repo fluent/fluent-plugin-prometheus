@@ -2,7 +2,7 @@ require 'fluent/plugin/prometheus'
 
 module Fluent
   class PrometheusOutput < Output
-    Plugin.register_filter('prometheus', self)
+    Plugin.register_output('prometheus', self)
     include Fluent::Prometheus
 
     def initialize
