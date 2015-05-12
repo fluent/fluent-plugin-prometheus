@@ -3,6 +3,6 @@ require 'fluent/test'
 require 'fluent/plugin/prometheus'
 
 # Disable Test::Unit
-module Test::Unit::RunCount; def run(*); end; end
+Test::Unit::AutoRunner.need_auto_run = false
 
 Fluent::Test.setup
