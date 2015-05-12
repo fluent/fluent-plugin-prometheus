@@ -15,7 +15,6 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "fluentd"
   spec.add_dependency "prometheus-client"
-  spec.add_runtime_dependency "fluent-mixin-rewrite-tag-name"
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake"
   spec.add_development_dependency "rspec"
