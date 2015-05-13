@@ -46,6 +46,22 @@ FULL_CONFIG = BASE_CONFIG + %[
   </labels>
 ]
 
+PLACEHOLDER_CONFIG = BASE_CONFIG + %[
+  <metric>
+    name placeholder_foo
+    type counter
+    desc Something foo.
+    key foo
+    <labels>
+      foo ${foo}
+    </labels>
+  </metric>
+  <labels>
+    tag ${tag}
+    hostname ${hostname}
+  </labels>
+]
+
 shared_examples_for 'output configuration' do
   context 'base config' do
     let(:config) { BASE_CONFIG }
@@ -63,6 +79,13 @@ shared_examples_for 'output configuration' do
 
   context 'full config' do
     let(:config) { FULL_CONFIG }
+    it 'does not raise error' do
+      expect{driver}.not_to raise_error
+    end
+  end
+
+  context 'placeholder config' do
+    let(:config) { PLACEHOLDER_CONFIG }
     it 'does not raise error' do
       expect{driver}.not_to raise_error
     end

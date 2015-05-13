@@ -65,5 +65,27 @@ describe Fluent::PrometheusFilter do
         expect(summary.get({test_key: 'test_value', key: 'foo3'})[0.99]).to eq(100)
       end
     end
+
+    context 'placeholder config' do
+      let(:config) { PLACEHOLDER_CONFIG.gsub('placeholder_foo', name.to_s) }
+      let(:name) { "placeholder_foo_#{Time.now.to_f}".to_sym }
+      let(:counter) { registry.get(name) }
+
+      before :each do
+        es
+      end
+
+      it 'expands placeholders with record values' do
+        expect(registry.metrics.map(&:name)).to include(name)
+        expect(counter).to be_kind_of(::Prometheus::Client::Metric)
+        key, _ = counter.values.find {|k,v| v ==  100 }
+        expect(key).to be_kind_of(Hash)
+        expect(key[:tag]).to eq(tag)
+        expect(key[:hostname]).to be_kind_of(String)
+        expect(key[:hostname]).not_to eq("${hostname}")
+        expect(key[:hostname]).not_to be_empty
+        expect(key[:foo]).to eq("100")
+      end
+    end
   end
 end if defined?(Fluent::PrometheusFilter)
