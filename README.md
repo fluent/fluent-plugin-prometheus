@@ -24,6 +24,54 @@ Or install it yourself as:
 
 TODO
 
+## Try plugin with nginx
+
+Checkout respotiroy and setup it.
+
+```
+$ git clone git://github.com/kazegusuri/fluent-plugin-prometheus
+$ cd fluent-plugin-prometheus
+$ bundle install --path vendor/bundle
+```
+
+Download pre-compiled prometheus binary and start it. It listens on 9090.
+
+```
+$ mkdir prometheus
+$ wget https://github.com/prometheus/prometheus/releases/download/0.13.3/prometheus-0.13.3.linux-amd64.tar.gz -O - | tar zxf - -C prometheus
+$ ./prometheus/prometheus -config.file=./misc/prometheus.conf -storage.local.path=./prometheus/metrics
+```
+
+Install Nginx for sample metrics. It listens on 80 and 9999.
+
+```
+$ sudo apt-get install -y nginx
+$ sudo cp misc/nginx_proxy.conf /etc/nginx/sites-enabled/proxy
+$ sudo chmod 777 /var/log/nginx && sudo chmod +r /var/log/nginx/access.log
+$ sudo service nginx restart
+```
+
+Start fluentd with sample configuration. It listens on 24231.
+
+```
+$ bundle exec fluentd -c misc/fluentd_sample.conf -v
+```
+
+Generate some records by accessing nginx.
+
+```
+$ curl http://localhost/
+$ curl http://localhost:9999/
+```
+
+Confirm that some metrics are exported via Fluentd.
+
+```
+$ curl http://localhost:24231/metrics
+```
+
+Then, make a graph on Prometheus UI. http://localhost:9090/
+
 ## Contributing
 
 1. Fork it ( https://github.com/kazegusuri/fluent-plugin-prometheus/fork )
