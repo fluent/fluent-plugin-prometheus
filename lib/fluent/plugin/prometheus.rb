@@ -92,9 +92,9 @@ module Fluent
       attr_reader :desc
 
       def initialize(element, registry, labels)
-        ['name', 'desc', 'key'].each do |key|
+        ['name', 'desc'].each do |key|
           if element[key].nil?
-            raise ConfigError, "metric must have #{key} option"
+            raise ConfigError, "metric requires '#{key}' option"
           end
         end
         @type = element['type']
@@ -132,12 +132,15 @@ module Fluent
     class Gauge < Metric
       def initialize(element, registry, labels)
         super
+        if @key.nil?
+          raise ConfigError, "gauge metric requires 'key' option"
+        end
+
         begin
           @gauge = registry.gauge(element['name'].to_sym, element['desc'])
         rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
           @gauge = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :gauge, element['desc'])
         end
-        @key = element['key']
       end
 
       def instrument(record, expander)
@@ -155,25 +158,31 @@ module Fluent
         rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
           @counter = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :counter, element['desc'])
         end
-        @key = element['key']
       end
 
       def instrument(record, expander)
-        if record[@key]
-          @counter.increment(labels(record, expander), record[@key])
-        end
+        # use record value of the key if key is specified, otherwise just increment
+        value = @key ? record[@key] : 1
+
+        # ignore if record value is nil
+        return if value.nil?
+
+        @counter.increment(labels(record, expander), value)
       end
     end
 
     class Summary < Metric
       def initialize(element, registry, labels)
         super
+        if @key.nil?
+          raise ConfigError, "summary metric requires 'key' option"
+        end
+
         begin
           @summary = registry.summary(element['name'].to_sym, element['desc'])
         rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
           @summary = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :summary, element['desc'])
         end
-        @key = element['key']
       end
 
       def instrument(record, expander)
