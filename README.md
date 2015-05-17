@@ -4,6 +4,8 @@
 
 A fluent plugin that instruments metrics from records and exposes them via web interface. Intended to be used together with a [Prometheus server](https://github.com/prometheus/prometheus).
 
+If you are using Fluentd v0.10, you have to explicitly install [fluent-plugin-record-reformer](https://github.com/sonots/fluent-plugin-record-reformer) together. With Fluentd v0.12, there is no additional dependency.
+
 ## Installation
 
 Add this line to your application's Gemfile:
@@ -44,6 +46,12 @@ With following configuration, you can access http://localhost:24231/metrics on a
 </source>
 ```
 
+More configuration parameters:
+
+- `bind`: binding interface (default: '0.0.0.0')
+- `port`: listen port (defaut: 24231)
+- `metrics_path`: metrics HTTP endpoint (default: /metrics)
+
 ### prometheus_monitor input plugin
 
 This plugin collects internal metrics in Fluentd. The metrics are similar to/part of [monitor_agent](http://docs.fluentd.org/articles/monitoring#monitoring-agent).
@@ -59,6 +67,11 @@ With following configuration, those metrics are collected.
 <source>
   type prometheus_monitor
 </source>
+
+More configuration parameters:
+
+- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `interval`: interval to update monitor_agent information in seconds (default: 5)
 
 ### prometheus output/filter plugin
 
@@ -130,11 +143,13 @@ In output plugin style:
 
 With above configuration, the plugin collects a metric named `message_foo_counter` from key `foo` of each records.
 
+See Supported Metric Type and Labels for more configuration parameters.
+
 ## Supported Metric Types
 
 For details of each metric type, see [Prometheus documentation](http://prometheus.io/docs/concepts/metric_types/). Also see [metric name guide](http://prometheus.io/docs/practices/naming/).
 
-#### counter type
+### counter type
 
 ```
 <metric>
@@ -154,9 +169,11 @@ For details of each metric type, see [Prometheus documentation](http://prometheu
 - `type`: metric type (required)
 - `desc`: description of this metric (required)
 - `key`: key name of record for instrumentation (**optional**)
-- `<labels>`: additional labels for this metric (optional)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
 
-#### gauge type
+If key is empty, the metric values is treated as 1, so the counter increments by 1 on each record regardless of contents of the record.
+
+### gauge type
 
 ```
 <metric>
@@ -176,9 +193,9 @@ For details of each metric type, see [Prometheus documentation](http://prometheu
 - `type`: metric type (required)
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
-- `<labels>`: additional labels for this metric (optional)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
 
-#### summary type
+### summary type
 
 ```
 <metric>
@@ -198,7 +215,68 @@ For details of each metric type, see [Prometheus documentation](http://prometheu
 - `type`: metric type (required)
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
-- `<labels>`: additional labels for this metric (optional)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+
+## Labels
+
+See [Prometheus Data Model](http://prometheus.io/docs/concepts/data_model/) first.
+
+You can add labels with static value or dynamic value from records. In `prometheus_monitor` input plugin, you can't use label value from records.
+
+### labels section
+
+```
+<labels>
+  key1 value1
+  key2 value2
+</labels>
+```
+
+All labels sections has same format. Each lines have key/value for label.
+
+You can use placeholder for label values. The placeholders will be expanded from records or reserved values. If you specify `${foo}`, it will be expanded by value of `foo` in record.
+
+Reserved placeholders are:
+
+- `${hostname}`: hostname
+- `${tag}`: tag name
+
+
+### top-label labels and labels inside metric
+
+Prometheus output/filter plugin can have multiple metric section. Top-level labels section spcifies labels for all metrics. Labels section insede metric section specifis labels for the metric. Both are specified, labels are merged.
+
+```
+<filter message>
+  type prometheus
+  <metric>
+    name message_foo_counter
+    type counter
+    desc The total number of foo in message.
+    key foo
+    <labels>
+      key foo
+      data_type ${type}
+    </labels>
+  </metric>
+  <metric>
+    name message_bar_counter
+    type counter
+    desc The total number of bar in message.
+    key bar
+    <labels>
+      key bar
+    </labels>
+  </metric>
+  <labels>
+    tag ${tag}
+    hostname ${hostname}
+  </labels>
+</filter>
+```
+
+In this case, `message_foo_counter` has `tag`, `hostname`, `key` and `data_type` labels.
+
 
 ## Try plugin with nginx
 
