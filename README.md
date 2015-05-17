@@ -31,7 +31,7 @@ fluentd-plugin-prometheus includes 4 plugins.
 - `prometheus` output plugin
 - `prometheus` filter plugin
 
-See [sample configuration](./misc/fluentd-sample.conf), or try [tutorial](#try-plugin-with-nginx).
+See [sample configuration](./misc/fluentd_sample.conf), or try [tutorial](#try-plugin-with-nginx).
 
 ### prometheus input plugin
 
