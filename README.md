@@ -291,9 +291,8 @@ $ bundle install --path vendor/bundle
 Download pre-compiled prometheus binary and start it. It listens on 9090.
 
 ```
-$ mkdir prometheus
-$ wget https://github.com/prometheus/prometheus/releases/download/0.13.3/prometheus-0.13.3.linux-amd64.tar.gz -O - | tar zxf - -C prometheus
-$ ./prometheus/prometheus -config.file=./misc/prometheus.conf -storage.local.path=./prometheus/metrics
+$ wget https://github.com/prometheus/prometheus/releases/download/0.16.1/prometheus-0.16.1.linux-amd64.tar.gz -O - | tar zxf -
+$ ./prometheus-0.16.1.linux-amd64/prometheus -config.file=./misc/prometheus.yaml -storage.local.path=./prometheus/metrics
 ```
 
 Install Nginx for sample metrics. It listens on 80 and 9999.
@@ -301,7 +300,7 @@ Install Nginx for sample metrics. It listens on 80 and 9999.
 ```
 $ sudo apt-get install -y nginx
 $ sudo cp misc/nginx_proxy.conf /etc/nginx/sites-enabled/proxy
-$ sudo chmod 777 /var/log/nginx && sudo chmod +r /var/log/nginx/access.log
+$ sudo chmod 777 /var/log/nginx && sudo chmod +r /var/log/nginx/*.log
 $ sudo service nginx restart
 ```
 
