@@ -53,7 +53,7 @@ module Fluent
       else # for v0.10, use PlaceholderExapander in fluent-plugin-record-reformer plugin
         begin
           require 'fluent/plugin/out_record_reformer.rb'
-          return Fluent::RecordReformerOutput::PlaceholderExpander.new(log)
+          return Fluent::RecordReformerOutput::PlaceholderExpander.new(log: log)
         rescue LoadError => e
           raise ConfigError, "cannot find fluent-plugin-record-reformer: #{e.message}"
         end
