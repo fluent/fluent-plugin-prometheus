@@ -46,7 +46,7 @@ module Fluent
       if defined?(Fluent::Filter) # for v0.12, built-in PlaceholderExpander
         begin
           require 'fluent/plugin/filter_record_transformer'
-          return Fluent::RecordTransformerFilter::PlaceholderExpander.new(log)
+          return Fluent::RecordTransformerFilter::PlaceholderExpander.new(log: log)
         rescue LoadError => e
           raise ConfigError, "cannot find filter_record_transformer plugin: #{e.message}"
         end
