@@ -67,16 +67,17 @@ module Fluent
     end
 
     def instrument(tag, es, metrics)
-      placeholder_options = {
+      placeholder_values = {
         'tag' => tag,
         'hostname' => @hostname,
       }
 
       es.each do |time, record|
-        @placeholder_expander.prepare_placeholders(time, record, placeholder_options)
+        placeholders = record.merge(placeholder_values)
+        placeholders = @placeholder_expander.prepare_placeholders(placeholders)
         metrics.each do |metric|
           begin
-            metric.instrument(record, @placeholder_expander)
+            metric.instrument(record, @placeholder_expander, placeholders)
           rescue => e
             log.warn "prometheus: failed to instrument a metric.", error_class: e.class, error: e, tag: tag, name: metric.name
             router.emit_error_event(tag, time, record, e)
@@ -106,10 +107,10 @@ module Fluent
         @base_labels = labels.merge(@base_labels)
       end
 
-      def labels(record, expander)
+      def labels(record, expander, placeholders)
         label = {}
         @base_labels.each do |k, v|
-          label[k] = expander.expand(v)
+          label[k] = expander.expand(v, placeholders)
         end
         label
       end
@@ -143,9 +144,9 @@ module Fluent
         end
       end
 
-      def instrument(record, expander)
+      def instrument(record, expander, placeholders)
         if record[@key]
-          @gauge.set(labels(record, expander), record[@key])
+          @gauge.set(labels(record, expander, placeholders), record[@key])
         end
       end
     end
@@ -160,14 +161,14 @@ module Fluent
         end
       end
 
-      def instrument(record, expander)
+      def instrument(record, expander, placeholders)
         # use record value of the key if key is specified, otherwise just increment
         value = @key ? record[@key] : 1
 
         # ignore if record value is nil
         return if value.nil?
 
-        @counter.increment(labels(record, expander), value)
+        @counter.increment(labels(record, expander, placeholders), value)
       end
     end
 
@@ -185,9 +186,9 @@ module Fluent
         end
       end
 
-      def instrument(record, expander)
+      def instrument(record, expander, placeholders)
         if record[@key]
-          @summary.add(labels(record, expander), record[@key])
+          @summary.add(labels(record, expander, placeholders), record[@key])
         end
       end
     end

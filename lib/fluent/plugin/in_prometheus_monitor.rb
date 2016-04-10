@@ -17,10 +17,10 @@ module Fluent
       super
       hostname = Socket.gethostname
       expander = Fluent::Prometheus.placeholder_expnader(log)
-      expander.prepare_placeholders(Time.now.to_i, {}, {'hostname' => hostname})
+      placeholders = expander.prepare_placeholders({'hostname' => hostname})
       @base_labels = Fluent::Prometheus.parse_labels_elements(conf)
       @base_labels.each do |key, value|
-        @base_labels[key] = expander.expand(value)
+        @base_labels[key] = expander.expand(value, placeholders)
       end
 
       @monitor_agent = MonitorAgentInput.new
