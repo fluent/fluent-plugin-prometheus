@@ -30,7 +30,7 @@ module Fluent
         'Current buffer queue length.')
       buffer_total_queued_size = @registry.gauge(
         :fluentd_status_buffer_total_bytes,
-        'Current total size of ququed buffers.')
+        'Current total size of queued buffers.')
       retry_counts = @registry.gauge(
         :fluentd_status_retry_count,
         'Current retry counts.')
