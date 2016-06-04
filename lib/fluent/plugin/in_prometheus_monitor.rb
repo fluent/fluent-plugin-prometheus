@@ -1,3 +1,5 @@
+require 'fluent/input'
+require 'fluent/plugin/in_monitor_agent'
 require 'fluent/plugin/prometheus'
 require 'webrick'
 
@@ -23,7 +25,7 @@ module Fluent
         @base_labels[key] = expander.expand(value, placeholders)
       end
 
-      @monitor_agent = MonitorAgentInput.new
+      @monitor_agent = Fluent::MonitorAgentInput.new
 
       buffer_queue_length = @registry.gauge(
         :fluentd_status_buffer_queue_length,

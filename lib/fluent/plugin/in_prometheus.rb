@@ -1,3 +1,4 @@
+require 'fluent/input'
 require 'fluent/plugin/prometheus'
 require 'webrick'
 
