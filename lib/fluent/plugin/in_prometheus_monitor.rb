@@ -16,7 +16,7 @@ module Fluent
     def configure(conf)
       super
       hostname = Socket.gethostname
-      expander = Fluent::Prometheus.placeholder_expnader(log)
+      expander = Fluent::Prometheus.placeholder_expander(log)
       placeholders = expander.prepare_placeholders({'hostname' => hostname})
       @base_labels = Fluent::Prometheus.parse_labels_elements(conf)
       @base_labels.each do |key, value|
