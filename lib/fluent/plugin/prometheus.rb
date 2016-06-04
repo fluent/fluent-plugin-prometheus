@@ -41,7 +41,7 @@ module Fluent
       metrics
     end
 
-    def self.placeholder_expnader(log)
+    def self.placeholder_expander(log)
       # Use internal class in order to expand placeholder
       if defined?(Fluent::Filter) # for v0.12, built-in PlaceholderExpander
         begin
@@ -62,7 +62,7 @@ module Fluent
 
     def configure(conf)
       super
-      @placeholder_expander = Fluent::Prometheus.placeholder_expnader(log)
+      @placeholder_expander = Fluent::Prometheus.placeholder_expander(log)
       @hostname = Socket.gethostname
     end
 

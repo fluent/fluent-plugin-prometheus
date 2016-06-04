@@ -2,6 +2,7 @@
 /.yardoc
 /Gemfile.lock
 /Gemfile.fluentd.0.10.lock
+/Gemfile.fluentd.0.12.lock
 /_yardoc/
 /coverage/
 /doc/

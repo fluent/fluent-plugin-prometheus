@@ -1,13 +1,13 @@
 language: ruby
 
 rvm:
-  - 2.1
   - 2.2
-  - 2.3.0
+  - 2.3.1
 
 gemfile:
   - Gemfile
   - Gemfile.fluentd.0.10
+  - Gemfile.fluentd.0.12
 
 script:
   - bundle exec rake spec

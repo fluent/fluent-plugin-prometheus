@@ -1,3 +1,4 @@
+require 'fluent/output'
 require 'fluent/plugin/prometheus'
 
 module Fluent

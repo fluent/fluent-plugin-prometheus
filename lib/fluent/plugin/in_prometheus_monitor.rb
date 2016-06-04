@@ -1,3 +1,5 @@
+require 'fluent/input'
+require 'fluent/plugin/in_monitor_agent'
 require 'fluent/plugin/prometheus'
 require 'webrick'
 
@@ -16,14 +18,14 @@ module Fluent
     def configure(conf)
       super
       hostname = Socket.gethostname
-      expander = Fluent::Prometheus.placeholder_expnader(log)
+      expander = Fluent::Prometheus.placeholder_expander(log)
       placeholders = expander.prepare_placeholders({'hostname' => hostname})
       @base_labels = Fluent::Prometheus.parse_labels_elements(conf)
       @base_labels.each do |key, value|
         @base_labels[key] = expander.expand(value, placeholders)
       end
 
-      @monitor_agent = MonitorAgentInput.new
+      @monitor_agent = Fluent::MonitorAgentInput.new
 
       buffer_queue_length = @registry.gauge(
         :fluentd_status_buffer_queue_length,
