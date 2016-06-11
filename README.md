@@ -280,7 +280,7 @@ In this case, `message_foo_counter` has `tag`, `hostname`, `key` and `data_type`
 
 ## Try plugin with nginx
 
-Checkout respotiroy and setup it.
+Checkout repository and setup.
 
 ```
 $ git clone git://github.com/kazegusuri/fluent-plugin-prometheus
