@@ -2,7 +2,7 @@
 scrape_configs:
 - job_name: fluentd
   scrape_interval: 5s
-  target_groups:
+  static_configs:
     - targets:
         - 'localhost:24231'
   metrics_path: /metrics
