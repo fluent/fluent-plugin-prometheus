@@ -34,8 +34,10 @@ module Fluent
           metrics << Fluent::Prometheus::Gauge.new(element, registry, labels)
         when 'counter'
           metrics << Fluent::Prometheus::Counter.new(element, registry, labels)
+        when 'histogram'
+          metrics << Fluent::Prometheus::Histogram.new(element, registry, labels)
         else
-          raise ConfigError, "type option must be 'counter', 'gauge' or 'summary'"
+          raise ConfigError, "type option must be 'counter', 'gauge', 'summary' or 'histogram'"
         end
       }
       metrics
@@ -195,6 +197,27 @@ module Fluent
       def instrument(record, expander, placeholders)
         if record[@key]
           @summary.observe(labels(record, expander, placeholders), record[@key])
+        end
+      end
+    end
+
+    class Histogram < Metric
+      def initialize(element, registry, labels)
+        super
+        if @key.nil?
+          raise ConfigError, "histogram metric requires 'key' option"
+        end
+
+        begin
+          @histogram = registry.histogram(element['name'].to_sym, element['desc'])
+        rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
+          @histogram = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])
+        end
+      end
+
+      def instrument(record, expander, placeholders)
+        if record[@key]
+          @histogram.observe(labels(record, expander, placeholders), record[@key])
         end
       end
     end

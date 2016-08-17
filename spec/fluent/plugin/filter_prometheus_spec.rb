@@ -12,7 +12,7 @@ describe Fluent::PrometheusFilter do
   end
 
   describe '#run' do
-    let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100} }
+    let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
     let(:es) { driver.run { driver.emit(message, Time.now) }.filtered }
 
     context 'simple config' do

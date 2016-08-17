@@ -42,6 +42,15 @@ FULL_CONFIG = BASE_CONFIG + %[
       key foo3
     </labels>
   </metric>
+  <metric>
+    name full_qux
+    type histogram
+    desc Something qux.
+    key qux
+    <labels>
+      key foo4
+    </labels>
+  </metric>
   <labels>
     test_key test_value
   </labels>
@@ -83,6 +92,7 @@ shared_context 'full_config' do
   let(:counter) { registry.get(:full_foo) }
   let(:gauge) { registry.get(:full_bar) }
   let(:summary) { registry.get(:full_baz) }
+  let(:histogram) { registry.get(:full_qux) }
 end
 
 shared_context 'placeholder_config' do
@@ -139,12 +149,14 @@ shared_examples_for 'output configuration' do
   end
 end
 
+emit_count = 0
 shared_examples_for 'instruments record' do
   context 'full config' do
     include_context 'full_config'
 
     before :each do
       es
+      emit_count += 1
     end
 
     it 'adds all metrics' do
@@ -154,6 +166,7 @@ shared_examples_for 'instruments record' do
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       expect(gauge).to be_kind_of(::Prometheus::Client::Metric)
       expect(summary).to be_kind_of(::Prometheus::Client::Metric)
+      expect(histogram).to be_kind_of(::Prometheus::Client::Metric)
     end
 
     it 'instruments counter metric' do
@@ -170,6 +183,12 @@ shared_examples_for 'instruments record' do
       expect(summary.type).to eq(:summary)
       expect(summary.get({test_key: 'test_value', key: 'foo3'})).to be_kind_of(Hash)
       expect(summary.get({test_key: 'test_value', key: 'foo3'})[0.99]).to eq(100)
+    end
+
+    it 'instruments histogram metric' do
+      expect(histogram.type).to eq(:histogram)
+      expect(histogram.get({test_key: 'test_value', key: 'foo4'})).to be_kind_of(Hash)
+      expect(histogram.get({test_key: 'test_value', key: 'foo4'})[10]).to eq(emit_count)
     end
   end
 
