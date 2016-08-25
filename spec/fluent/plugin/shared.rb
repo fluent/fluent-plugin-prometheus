@@ -47,6 +47,7 @@ FULL_CONFIG = BASE_CONFIG + %[
     type histogram
     desc Something qux.
     key qux
+    buckets 0.1, 1, 5, 10
     <labels>
       key foo4
     </labels>

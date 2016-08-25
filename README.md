@@ -225,6 +225,7 @@ If key is empty, the metric values is treated as 1, so the counter increments by
   type histogram
   desc The histogram of foo in message.
   key foo
+  buckets 0.1, 1, 5, 10
   <labels>
     tag ${tag}
     host ${hostname}
@@ -237,6 +238,7 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `type`: metric type (required)
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
+- `buckets`: buckets of record for instrumentation (optional)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
 
 ## Labels

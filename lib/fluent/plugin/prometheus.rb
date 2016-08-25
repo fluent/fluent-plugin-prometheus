@@ -209,7 +209,14 @@ module Fluent
         end
 
         begin
-          @histogram = registry.histogram(element['name'].to_sym, element['desc'])
+          if element['buckets']
+            buckets = element['buckets'].split(/,/).map do |e|
+              e[/\A\d+.\d+\Z/] ? e.to_f : e.to_i
+            end
+            @histogram = registry.histogram(element['name'].to_sym, element['desc'], {}, buckets)
+          else
+            @histogram = registry.histogram(element['name'].to_sym, element['desc'])
+          end
         rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
           @histogram = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])
         end
