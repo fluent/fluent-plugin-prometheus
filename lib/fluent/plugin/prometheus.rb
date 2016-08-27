@@ -210,7 +210,7 @@ module Fluent
 
         begin
           if element['buckets']
-            buckets = element['buckets'].split(/,/).map do |e|
+            buckets = element['buckets'].split(/,/).map(&:strip).map do |e|
               e[/\A\d+.\d+\Z/] ? e.to_f : e.to_i
             end
             @histogram = registry.histogram(element['name'].to_sym, element['desc'], {}, buckets)
