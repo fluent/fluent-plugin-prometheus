@@ -194,7 +194,7 @@ module Fluent
 
       def instrument(record, expander, placeholders)
         if record[@key]
-          @summary.add(labels(record, expander, placeholders), record[@key])
+          @summary.observe(labels(record, expander, placeholders), record[@key])
         end
       end
     end
