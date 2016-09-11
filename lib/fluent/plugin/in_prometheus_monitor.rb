@@ -25,7 +25,12 @@ module Fluent
         @base_labels[key] = expander.expand(value, placeholders)
       end
 
-      @monitor_agent = Fluent::MonitorAgentInput.new
+      if defined?(Fluent::Plugin) && defined?(Fluent::Plugin::MonitorAgentInput)
+        # from v0.14.6
+        @monitor_agent = Fluent::Plugin::MonitorAgentInput.new
+      else
+        @monitor_agent = Fluent::MonitorAgentInput.new
+      end
 
       buffer_queue_length = @registry.gauge(
         :fluentd_status_buffer_queue_length,
