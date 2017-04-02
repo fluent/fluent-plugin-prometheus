@@ -107,7 +107,11 @@ More configuration parameters:
 
 ### prometheus_tail_monitor input plugin
 
+**experimental**
+
 This plugin collects internal metrics for in_tail plugin in Fluentd. in_tail plugin holds internal state for files that the plugin is watching. The state is sometimes important to monitor plugins work correctly.
+
+This plugin uses internal class of Fluentd, so it's easy to break.
 
 Current exposed metrics:
 
