@@ -1,7 +1,6 @@
 require 'fluent/input'
 require 'fluent/plugin/in_monitor_agent'
 require 'fluent/plugin/prometheus'
-require 'webrick'
 
 module Fluent
   class PrometheusMonitorInput < Input
