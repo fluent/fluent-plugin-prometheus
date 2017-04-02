@@ -73,6 +73,38 @@ More configuration parameters:
 - `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
 - `interval`: interval to update monitor_agent information in seconds (default: 5)
 
+### prometheus_output_monitor input plugin
+
+This plugin collects internal metrics for output plugin in Fluentd. This is similar to `prometheus_monitor` plugin, but specialized for input plugin. There are Many metrics `prometheus_monitor` does not include, such as `num_errors`, `retry_wait` and so on.
+
+Current exposed metrics:
+
+- `fluentd_output_status_buffer_queue_length`
+- `fluentd_output_status_buffer_total_bytes`
+- `fluentd_output_status_retry_count`
+- `fluentd_output_status_num_errors`
+- `fluentd_output_status_emit_count`
+- `fluentd_output_status_retry_wait`
+    - current retry_wait computed from last retry time and next retry time
+- `fluentd_output_status_emit_records`
+    - only for v0.14
+- `fluentd_output_status_write_count`
+    - only for v0.14
+- `fluentd_output_status_rollback_count`
+    - only for v0.14
+
+
+With following configuration, those metrics are collected.
+
+<source>
+  type prometheus_output_monitor
+</source>
+
+More configuration parameters:
+
+- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `interval`: interval to update monitor_agent information in seconds (default: 5)
+
 ### prometheus output/filter plugin
 
 Both output/filter plugins instrument metrics from records. Both plugins have no impact against values of each records, just read.
