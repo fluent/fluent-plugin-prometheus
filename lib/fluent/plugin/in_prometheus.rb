@@ -22,6 +22,7 @@ module Fluent
     end
 
     def start
+      super
       @server = WEBrick::HTTPServer.new(
         BindAddress: @bind,
         Port: @port,
@@ -33,6 +34,7 @@ module Fluent
     end
 
     def shutdown
+      super
       if @server
         @server.shutdown
         @server = nil
