@@ -24,10 +24,12 @@ Or install it yourself as:
 
 ## Usage
 
-fluentd-plugin-prometheus includes 4 plugins.
+fluentd-plugin-prometheus includes 6 plugins.
 
 - `prometheus` input plugin
 - `prometheus_monitor` input plugin
+- `prometheus_output_monitor` input plugin
+- `prometheus_tail_monitor` input plugin
 - `prometheus` output plugin
 - `prometheus` filter plugin
 
