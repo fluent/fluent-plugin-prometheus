@@ -105,6 +105,34 @@ More configuration parameters:
 - `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
 - `interval`: interval to update monitor_agent information in seconds (default: 5)
 
+### prometheus_tail_monitor input plugin
+
+This plugin collects internal metrics for in_tail plugin in Fluentd. in_tail plugin holds internal state for files that the plugin is watching. The state is sometimes important to monitor plugins work correctly.
+
+Current exposed metrics:
+
+- `fluentd_tail_file_position`
+    - Current bytes which plugin reads from the file
+- `fluentd_tail_file_inode`
+    - inode of the file
+
+Default labels:
+
+- `plugin_id`: a value set for a plugin in configuration.
+- `type`: plugin name. `in_tail` only for now.
+- `path`: file path
+
+With following configuration, those metrics are collected.
+
+<source>
+  type prometheus_output_monitor
+</source>
+
+More configuration parameters:
+
+- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `interval`: interval to update monitor_agent information in seconds (default: 5)
+
 ### prometheus output/filter plugin
 
 Both output/filter plugins instrument metrics from records. Both plugins have no impact against values of each records, just read.
