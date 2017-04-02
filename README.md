@@ -315,8 +315,8 @@ $ bundle install --path vendor/bundle
 Download pre-compiled prometheus binary and start it. It listens on 9090.
 
 ```
-$ wget https://github.com/prometheus/prometheus/releases/download/v1.0.1/prometheus-1.0.1.linux-amd64.tar.gz -O - | tar zxf -
-$ ./prometheus-1.0.1.linux-amd64/prometheus -config.file=./misc/prometheus.yaml -storage.local.path=./prometheus/metrics
+$ wget https://github.com/prometheus/prometheus/releases/download/v1.5.2/prometheus-1.5.2.linux-amd64.tar.gz -O - | tar zxf -
+$ ./prometheus-1.5.2.linux-amd64/prometheus -config.file=./misc/prometheus.yaml -storage.local.path=./prometheus/metrics
 ```
 
 Install Nginx for sample metrics. It listens on 80 and 9999.
