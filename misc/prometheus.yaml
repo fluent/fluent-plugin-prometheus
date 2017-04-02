@@ -1,8 +1,13 @@
 # A job to scrape an endpoint of Fluentd running on localhost.
 scrape_configs:
+- job_name: 'prometheus'
+  scrape_interval: 5s
+  static_configs:
+    - targets:
+      - 'localhost:9090'
 - job_name: fluentd
   scrape_interval: 5s
   static_configs:
     - targets:
-        - 'localhost:24231'
+      - 'localhost:24231'
   metrics_path: /metrics
