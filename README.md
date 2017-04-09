@@ -77,6 +77,8 @@ More configuration parameters:
 
 ### prometheus_output_monitor input plugin
 
+**experimental**
+
 This plugin collects internal metrics for output plugin in Fluentd. This is similar to `prometheus_monitor` plugin, but specialized for input plugin. There are Many metrics `prometheus_monitor` does not include, such as `num_errors`, `retry_wait` and so on.
 
 Current exposed metrics:
