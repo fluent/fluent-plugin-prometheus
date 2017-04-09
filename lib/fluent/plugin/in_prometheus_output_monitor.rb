@@ -160,10 +160,12 @@ module Fluent
             # v0.12 does not include start, use last_retry_time instead
             start_time = info['instance_variables'][:last_retry_time]
           end
+
+          wait = 0
           if next_time && start_time
             wait = next_time - start_time
-            @metrics[:retry_wait].set(label, wait.to_f)
           end
+          @metrics[:retry_wait].set(label, wait.to_f)
         end
       end
     end
