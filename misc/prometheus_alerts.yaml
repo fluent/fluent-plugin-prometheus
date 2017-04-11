@@ -1,0 +1,59 @@
+ALERT FluentdNodeDown
+  IF up{job="fluentd"} == 0
+  FOR 10m
+  LABELS {
+    service = "fluentd",
+    severity = "warning"
+  }
+  ANNOTATIONS {
+    summary = "fluentd cannot be scraped",
+    description = "Prometheus could not scrape {{ $labels.job }} for more than 10 minutes",
+  }
+  
+ALERT FluentdNodeDown
+  IF up{job="fluentd"} == 0
+  FOR 30m
+  LABELS {
+    service = "fluentd",
+    severity = "critical"
+  }
+  ANNOTATIONS {
+    summary = "fluentd cannot be scraped",
+    description = "Prometheus could not scrape {{ $labels.job }} for more than 30 minutes",
+  }
+  
+ALERT FluentdQueueLength
+  IF rate(fluentd_status_buffer_queue_length[5m]) > 0.3
+  FOR 1m
+  LABELS {
+    service = "fluentd",
+    severity = "warning"
+  }
+  ANNOTATIONS {
+    summary = "fluentd node are failing",
+    description = "In the last 5 minutes, fluentd queues increased 30%. Current value is {{ $value }} ",
+  }
+
+ALERT FluentdQueueLength
+  IF rate(fluentd_status_buffer_queue_length[5m]) > 0.5
+  FOR 1m
+  LABELS {
+    service = "fluentd",
+    severity = "critical"
+  }
+  ANNOTATIONS {
+    summary = "fluentd node are critical",
+    description = "In the last 5 minutes, fluentd queues increased 50%. Current value is {{ $value }} ",
+  }
+
+ALERT FluentdRecordsCountsHigh
+  IF sum(rate(fluentd_record_counts{job="fluentd"}[5m])) BY (instance) >  (3 * sum(rate(fluentd_record_counts{job="fluentd"}[15m])) BY (instance))
+  FOR 1m
+  LABELS {
+    service = "fluentd",
+    severity = "critical"
+  }
+  ANNOTATIONS {
+    summary = "fluentd records count are critical",
+    description = "In the last 5m, records counts increased 3 times, comparing to the latest 15 min.",
+  }
