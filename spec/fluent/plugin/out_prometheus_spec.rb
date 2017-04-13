@@ -1,10 +1,11 @@
 require 'spec_helper'
+require 'fluent/test/driver/output'
 require 'fluent/plugin/out_prometheus'
 require_relative 'shared'
 
-describe Fluent::PrometheusOutput do
+describe Fluent::Plugin::PrometheusOutput do
   let(:tag) { 'prometheus.test' }
-  let(:driver) { Fluent::Test::OutputTestDriver.new(Fluent::PrometheusOutput, tag).configure(config) }
+  let(:driver) { Fluent::Test::Driver::Output.new(Fluent::Plugin::PrometheusOutput).configure(config) }
   let(:registry) { ::Prometheus::Client.registry }
 
   describe '#configure' do
@@ -13,7 +14,10 @@ describe Fluent::PrometheusOutput do
 
   describe '#run' do
     let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
-    let(:es) { driver.run { driver.emit(message, Time.now) } }
+    let(:es) {
+      driver.run(default_tag: tag) { driver.feed(event_time, message) }
+      driver.events
+    }
 
     context 'simple config' do
       include_context 'simple_config'

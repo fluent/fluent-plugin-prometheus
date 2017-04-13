@@ -1,9 +1,9 @@
-require 'fluent/output'
+require 'fluent/plugin/output'
 require 'fluent/plugin/prometheus'
 
-module Fluent
-  class PrometheusOutput < Output
-    Plugin.register_output('prometheus', self)
+module Fluent::Plugin
+  class PrometheusOutput < Fluent::Plugin::Output
+    Fluent::Plugin.register_output('prometheus', self)
     include Fluent::Prometheus
 
     def initialize
@@ -17,9 +17,8 @@ module Fluent
       @metrics = Fluent::Prometheus.parse_metrics_elements(conf, @registry, labels)
     end
 
-    def emit(tag, es, chain)
+    def process(tag, es)
       instrument(tag, es, @metrics)
-      chain.next
     end
   end
 end
