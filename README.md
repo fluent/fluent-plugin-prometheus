@@ -44,7 +44,7 @@ With following configuration, you can access http://localhost:24231/metrics on a
 
 ```
 <source>
-  type prometheus
+  @type prometheus
 </source>
 ```
 
@@ -67,7 +67,7 @@ Current exposed metrics:
 With following configuration, those metrics are collected.
 
 <source>
-  type prometheus_monitor
+  @type prometheus_monitor
 </source>
 
 More configuration parameters:
@@ -101,7 +101,7 @@ Current exposed metrics:
 With following configuration, those metrics are collected.
 
 <source>
-  type prometheus_output_monitor
+  @type prometheus_output_monitor
 </source>
 
 More configuration parameters:
@@ -133,7 +133,7 @@ Default labels:
 With following configuration, those metrics are collected.
 
 <source>
-  type prometheus_output_monitor
+  @type prometheus_output_monitor
 </source>
 
 More configuration parameters:
@@ -149,7 +149,7 @@ Assuming you have following configuration and receiving message,
 
 ```
 <match message>
-  type stdout
+  @type stdout
 </match>
 ```
 
@@ -165,7 +165,7 @@ In filter plugin style,
 
 ```
 <filter message>
-  type prometheus
+  @type prometheus
   <metric>
     name message_foo_counter
     type counter
@@ -175,7 +175,7 @@ In filter plugin style,
 </filter>
 
 <match message>
-  type stdout
+  @type stdout
 </match>
 ```
 
@@ -183,7 +183,7 @@ In output plugin style:
 
 ```
 <filter message>
-  type prometheus
+  @type prometheus
   <metric>
     name message_foo_counter
     type counter
@@ -193,9 +193,9 @@ In output plugin style:
 </filter>
 
 <match message>
-  type copy
+  @type copy
   <store>
-    type prometheus
+    @type prometheus
     <metric>
       name message_foo_counter
       type counter
@@ -204,7 +204,7 @@ In output plugin style:
     </metric>
   </store>
   <store>
-    type stdout
+    @type stdout
   </store>
 </match>
 ```
@@ -340,7 +340,7 @@ Prometheus output/filter plugin can have multiple metric section. Top-level labe
 
 ```
 <filter message>
-  type prometheus
+  @type prometheus
   <metric>
     name message_foo_counter
     type counter
