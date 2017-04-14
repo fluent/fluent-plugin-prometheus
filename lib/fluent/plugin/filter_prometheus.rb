@@ -1,8 +1,9 @@
 require 'fluent/plugin/prometheus'
+require 'fluent/plugin/filter'
 
-module Fluent
-  class PrometheusFilter < Filter
-    Plugin.register_filter('prometheus', self)
+module Fluent::Plugin
+  class PrometheusFilter < Fluent::Plugin::Filter
+    Fluent::Plugin.register_filter('prometheus', self)
     include Fluent::Prometheus
 
     def initialize
