@@ -8,7 +8,7 @@ module Fluent::Plugin
 
     helpers :timer
 
-    config_param :interval, :time, :default => 5
+    config_param :interval, :time, default: 5
     attr_reader :registry
 
     MONITOR_IVARS = [

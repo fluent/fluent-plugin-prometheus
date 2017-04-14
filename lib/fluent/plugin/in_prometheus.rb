@@ -8,9 +8,9 @@ module Fluent::Plugin
 
     helpers :thread
 
-    config_param :bind, :string, :default => '0.0.0.0'
-    config_param :port, :integer, :default => 24231
-    config_param :metrics_path, :string, :default => '/metrics'
+    config_param :bind, :string, default: '0.0.0.0'
+    config_param :port, :integer, default: 24231
+    config_param :metrics_path, :string, default: '/metrics'
 
     attr_reader :registry
 
