@@ -4,6 +4,15 @@
 
 A fluent plugin that instruments metrics from records and exposes them via web interface. Intended to be used together with a [Prometheus server](https://github.com/prometheus/prometheus).
 
+If you are using Fluentd v0.10, you have to explicitly install [fluent-plugin-record-reformer](https://github.com/sonots/fluent-plugin-record-reformer) together. With Fluentd v0.12 or v0.14, there is no additional dependency.
+
+## Requirements
+
+| fluent-plugin-prometheus | fluentd    | ruby   |
+|--------------------------|------------|--------|
+| >= 0.4.0                 | >= v0.14.8 | >= 2.1 |
+| < 0.4.0                  | >= v0.12.0 | >= 1.9 |
+
 ## Installation
 
 Add this line to your application's Gemfile:
