@@ -2,6 +2,7 @@ require 'prometheus/client'
 require 'prometheus/client/formats/text'
 
 module Fluent
+  module Plugin
   module Prometheus
     class AlreadyRegisteredError < StandardError; end
 
@@ -29,13 +30,13 @@ module Fluent
       }.each { |element|
         case element['type']
         when 'summary'
-          metrics << Fluent::Prometheus::Summary.new(element, registry, labels)
+          metrics << Fluent::Plugin::Prometheus::Summary.new(element, registry, labels)
         when 'gauge'
-          metrics << Fluent::Prometheus::Gauge.new(element, registry, labels)
+          metrics << Fluent::Plugin::Prometheus::Gauge.new(element, registry, labels)
         when 'counter'
-          metrics << Fluent::Prometheus::Counter.new(element, registry, labels)
+          metrics << Fluent::Plugin::Prometheus::Counter.new(element, registry, labels)
         when 'histogram'
-          metrics << Fluent::Prometheus::Histogram.new(element, registry, labels)
+          metrics << Fluent::Plugin::Prometheus::Histogram.new(element, registry, labels)
         else
           raise ConfigError, "type option must be 'counter', 'gauge', 'summary' or 'histogram'"
         end
@@ -59,7 +60,7 @@ module Fluent
 
     def configure(conf)
       super
-      @placeholder_expander = Fluent::Prometheus.placeholder_expander(log)
+      @placeholder_expander = Fluent::Plugin::Prometheus.placeholder_expander(log)
       @hostname = Socket.gethostname
     end
 
@@ -100,7 +101,7 @@ module Fluent
         @key = element['key']
         @desc = element['desc']
 
-        @base_labels = Fluent::Prometheus.parse_labels_elements(element)
+        @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(element)
         @base_labels = labels.merge(@base_labels)
       end
 
@@ -137,7 +138,7 @@ module Fluent
         begin
           @gauge = registry.gauge(element['name'].to_sym, element['desc'])
         rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
-          @gauge = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :gauge, element['desc'])
+          @gauge = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :gauge, element['desc'])
         end
       end
 
@@ -154,7 +155,7 @@ module Fluent
         begin
           @counter = registry.counter(element['name'].to_sym, element['desc'])
         rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
-          @counter = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :counter, element['desc'])
+          @counter = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :counter, element['desc'])
         end
       end
 
@@ -179,7 +180,7 @@ module Fluent
         begin
           @summary = registry.summary(element['name'].to_sym, element['desc'])
         rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
-          @summary = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :summary, element['desc'])
+          @summary = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :summary, element['desc'])
         end
       end
 
@@ -207,7 +208,7 @@ module Fluent
             @histogram = registry.histogram(element['name'].to_sym, element['desc'])
           end
         rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
-          @histogram = Fluent::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])
+          @histogram = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])
         end
       end
 
@@ -217,5 +218,6 @@ module Fluent
         end
       end
     end
+  end
   end
 end

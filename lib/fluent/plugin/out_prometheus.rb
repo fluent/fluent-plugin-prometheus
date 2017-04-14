@@ -4,7 +4,7 @@ require 'fluent/plugin/prometheus'
 module Fluent::Plugin
   class PrometheusOutput < Fluent::Plugin::Output
     Fluent::Plugin.register_output('prometheus', self)
-    include Fluent::Prometheus
+    include Fluent::Plugin::Prometheus
 
     def initialize
       super
@@ -13,8 +13,8 @@ module Fluent::Plugin
 
     def configure(conf)
       super
-      labels = Fluent::Prometheus.parse_labels_elements(conf)
-      @metrics = Fluent::Prometheus.parse_metrics_elements(conf, @registry, labels)
+      labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
+      @metrics = Fluent::Plugin::Prometheus.parse_metrics_elements(conf, @registry, labels)
     end
 
     def process(tag, es)
