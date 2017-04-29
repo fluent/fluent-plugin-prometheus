@@ -10,6 +10,8 @@ module Fluent
     attr_reader :registry
 
     MONITOR_IVARS = [
+      :retry,
+
       :num_errors,
       :emit_count,
 
