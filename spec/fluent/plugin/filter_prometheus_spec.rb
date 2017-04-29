@@ -31,4 +31,4 @@ describe Fluent::PrometheusFilter do
 
     it_behaves_like 'instruments record'
   end
-end if defined?(Fluent::PrometheusFilter)
+end
