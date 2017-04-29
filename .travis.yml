@@ -7,12 +7,6 @@ rvm:
 gemfile:
   - Gemfile
   - Gemfile.fluentd.0.12
-  - Gemfile.fluentd.0.10
-
-matrix:
-  allow_failures:
-    - gemfile: Gemfile.fluentd.0.10
-      rvm: 2.4.0
 
 script:
   - bundle exec rake spec

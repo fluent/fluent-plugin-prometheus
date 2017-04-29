@@ -45,27 +45,16 @@ module Fluent
 
     def self.placeholder_expander(log)
       # Use internal class in order to expand placeholder
-      if defined?(Fluent::Filter) # for v0.12, built-in PlaceholderExpander
-        begin
-          require 'fluent/plugin/filter_record_transformer'
-          if defined?(Fluent::Plugin::RecordTransformerFilter::PlaceholderExpander)
-            # for v0.14
-            return Fluent::Plugin::RecordTransformerFilter::PlaceholderExpander.new(log: log)
-          else
-            # for v0.12
-            return Fluent::RecordTransformerFilter::PlaceholderExpander.new(log: log)
-          end
-        rescue LoadError => e
-          raise ConfigError, "cannot find filter_record_transformer plugin: #{e.message}"
-        end
-      else # for v0.10, use PlaceholderExapander in fluent-plugin-record-reformer plugin
-        begin
-          require 'fluent/plugin/out_record_reformer.rb'
-          return Fluent::RecordReformerOutput::PlaceholderExpander.new(log: log)
-        rescue LoadError => e
-          raise ConfigError, "cannot find fluent-plugin-record-reformer: #{e.message}"
-        end
+      require 'fluent/plugin/filter_record_transformer'
+      if defined?(Fluent::Plugin::RecordTransformerFilter::PlaceholderExpander)
+        # for v0.14
+        return Fluent::Plugin::RecordTransformerFilter::PlaceholderExpander.new(log: log)
+      else
+        # for v0.12
+        return Fluent::RecordTransformerFilter::PlaceholderExpander.new(log: log)
       end
+    rescue LoadError => e
+      raise ConfigError, "cannot find filter_record_transformer plugin: #{e.message}"
     end
 
     def configure(conf)

@@ -20,5 +20,5 @@ module Fluent
       instrument(tag, es, @metrics)
       es
     end
-  end if defined?(Filter)
+  end
 end
