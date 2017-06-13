@@ -70,7 +70,7 @@ With following configuration, those metrics are collected.
 
 More configuration parameters:
 
-- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 - `interval`: interval to update monitor_agent information in seconds (default: 5)
 
 ### prometheus_output_monitor input plugin
@@ -104,7 +104,7 @@ With following configuration, those metrics are collected.
 
 More configuration parameters:
 
-- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 - `interval`: interval to update monitor_agent information in seconds (default: 5)
 
 ### prometheus_tail_monitor input plugin
@@ -136,7 +136,7 @@ With following configuration, those metrics are collected.
 
 More configuration parameters:
 
-- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 - `interval`: interval to update monitor_agent information in seconds (default: 5)
 
 ### prometheus output/filter plugin
@@ -235,7 +235,7 @@ For details of each metric type, see [Prometheus documentation](http://prometheu
 - `type`: metric type (required)
 - `desc`: description of this metric (required)
 - `key`: key name of record for instrumentation (**optional**)
-- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 
 If key is empty, the metric values is treated as 1, so the counter increments by 1 on each record regardless of contents of the record.
 
@@ -259,7 +259,7 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `type`: metric type (required)
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
-- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 
 ### summary type
 
@@ -281,7 +281,7 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `type`: metric type (required)
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
-- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 
 ### histogram type
 
@@ -305,7 +305,7 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
 - `buckets`: buckets of record for instrumentation (optional)
-- `<labels>`: additional labels for this metric (optional). See [Labels](#Labels)
+- `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 
 ## Labels
 
