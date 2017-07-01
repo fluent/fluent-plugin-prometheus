@@ -6,7 +6,6 @@ rvm:
 
 gemfile:
   - Gemfile
-  - Gemfile.fluentd.0.12
 
 script:
   - bundle exec rake spec
