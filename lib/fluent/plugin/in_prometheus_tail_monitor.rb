@@ -1,12 +1,14 @@
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/plugin/in_monitor_agent'
 require 'fluent/plugin/prometheus'
 
-module Fluent
-  class PrometheusTailMonitorInput < Input
-    Plugin.register_input('prometheus_tail_monitor', self)
+module Fluent::Plugin
+  class PrometheusTailMonitorInput < Fluent::Plugin::Input
+    Fluent::Plugin.register_input('prometheus_tail_monitor', self)
 
-    config_param :interval, :time, :default => 5
+    helpers :timer
+
+    config_param :interval, :time, default: 5
     attr_reader :registry
 
     MONITOR_IVARS = [
@@ -21,9 +23,9 @@ module Fluent
     def configure(conf)
       super
       hostname = Socket.gethostname
-      expander = Fluent::Prometheus.placeholder_expander(log)
+      expander = Fluent::Plugin::Prometheus.placeholder_expander(log)
       placeholders = expander.prepare_placeholders({'hostname' => hostname})
-      @base_labels = Fluent::Prometheus.parse_labels_elements(conf)
+      @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
       @base_labels.each do |key, value|
         @base_labels[key] = expander.expand(value, placeholders)
       end
@@ -45,41 +47,9 @@ module Fluent
       }
     end
 
-    class TimerWatcher < Coolio::TimerWatcher
-      def initialize(interval, repeat, log, &callback)
-        @callback = callback
-        @log = log
-        super(interval, repeat)
-      end
-
-      def on_timer
-        @callback.call
-      rescue
-        @log.error $!.to_s
-        @log.error_backtrace
-      end
-    end
-
     def start
       super
-      @loop = Coolio::Loop.new
-      @timer = TimerWatcher.new(@interval, true, log, &method(:update_monitor_info))
-      @loop.attach(@timer)
-      @thread = Thread.new(&method(:run))
-    end
-
-    def shutdown
-      super
-      @loop.watchers.each {|w| w.detach }
-      @loop.stop
-      @thread.join
-    end
-
-    def run
-      @loop.run
-    rescue
-      log.error "unexpected error", :error=>$!.to_s
-      log.error_backtrace
+      timer_execute(:in_prometheus_tail_monitor, @interval, &method(:update_monitor_info))
     end
 
     def update_monitor_info

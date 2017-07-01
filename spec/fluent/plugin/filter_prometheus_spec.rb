@@ -1,10 +1,11 @@
 require 'spec_helper'
+require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_prometheus'
 require_relative 'shared'
 
-describe Fluent::PrometheusFilter do
+describe Fluent::Plugin::PrometheusFilter do
   let(:tag) { 'prometheus.test' }
-  let(:driver) { Fluent::Test::FilterTestDriver.new(Fluent::PrometheusFilter, tag).configure(config, true) }
+  let(:driver) { Fluent::Test::Driver::Filter.new(Fluent::Plugin::PrometheusFilter).configure(config) }
   let(:registry) { ::Prometheus::Client.registry }
 
   describe '#configure' do
@@ -13,7 +14,10 @@ describe Fluent::PrometheusFilter do
 
   describe '#run' do
     let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
-    let(:es) { driver.run { driver.emit(message, Time.now) }.filtered }
+    let(:es) {
+      driver.run(default_tag: tag) { driver.feed(event_time, message) }
+      driver.filtered_records
+    }
 
     context 'simple config' do
       include_context 'simple_config'
@@ -25,7 +29,7 @@ describe Fluent::PrometheusFilter do
       end
 
       it 'should keep original message' do
-        expect(es.first[1]).to eq(message)
+        expect(es.first).to eq(message)
       end
     end
 

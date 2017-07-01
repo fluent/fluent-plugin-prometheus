@@ -1,24 +1,22 @@
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/plugin/prometheus'
 require 'webrick'
 
-module Fluent
-  class PrometheusInput < Input
-    Plugin.register_input('prometheus', self)
+module Fluent::Plugin
+  class PrometheusInput < Fluent::Plugin::Input
+    Fluent::Plugin.register_input('prometheus', self)
 
-    config_param :bind, :string, :default => '0.0.0.0'
-    config_param :port, :integer, :default => 24231
-    config_param :metrics_path, :string, :default => '/metrics'
+    helpers :thread
+
+    config_param :bind, :string, default: '0.0.0.0'
+    config_param :port, :integer, default: 24231
+    config_param :metrics_path, :string, default: '/metrics'
 
     attr_reader :registry
 
     def initialize
       super
       @registry = ::Prometheus::Client.registry
-    end
-
-    def configure(conf)
-      super
     end
 
     def start
@@ -30,19 +28,17 @@ module Fluent
         AccessLog: [],
       )
       @server.mount(@metrics_path, MonitorServlet, self)
-      @thread = Thread.new { @server.start }
+      thread_create(:in_prometheus) do
+        @server.start
+      end
     end
 
     def shutdown
-      super
       if @server
         @server.shutdown
         @server = nil
       end
-      if @thread
-        @thread.join
-        @thread = nil
-      end
+      super
     end
 
     class MonitorServlet < WEBrick::HTTPServlet::AbstractServlet

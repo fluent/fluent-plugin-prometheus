@@ -1,9 +1,10 @@
 require 'spec_helper'
 require 'fluent/plugin/in_prometheus'
+require 'fluent/test/driver/input'
 
 require 'net/http'
 
-describe Fluent::PrometheusInput do
+describe Fluent::Plugin::PrometheusInput do
   CONFIG = %[
   type prometheus
 ]
@@ -15,7 +16,7 @@ describe Fluent::PrometheusInput do
 
   let(:config) { CONFIG }
   let(:port) { 24231 }
-  let(:driver) { Fluent::Test::InputTestDriver.new(Fluent::PrometheusInput).configure(config) }
+  let(:driver) { Fluent::Test::Driver::Input.new(Fluent::Plugin::PrometheusInput).configure(config) }
 
   describe '#configure' do
     describe 'bind' do
@@ -50,7 +51,7 @@ describe Fluent::PrometheusInput do
     context '/metrics' do
       let(:config) { LOCAL_CONFIG }
       it 'returns 200' do
-        driver.run do
+        driver.run(timeout: 1) do
           Net::HTTP.start("127.0.0.1", port) do |http|
             req = Net::HTTP::Get.new("/metrics")
             res = http.request(req)
@@ -63,7 +64,7 @@ describe Fluent::PrometheusInput do
     context '/foo' do
       let(:config) { LOCAL_CONFIG }
       it 'does not return 200' do
-        driver.run do
+        driver.run(timeout: 1) do
           Net::HTTP.start("127.0.0.1", port) do |http|
             req = Net::HTTP::Get.new("/foo")
             res = http.request(req)

@@ -1,9 +1,10 @@
 require 'fluent/plugin/prometheus'
+require 'fluent/plugin/filter'
 
-module Fluent
-  class PrometheusFilter < Filter
-    Plugin.register_filter('prometheus', self)
-    include Fluent::Prometheus
+module Fluent::Plugin
+  class PrometheusFilter < Fluent::Plugin::Filter
+    Fluent::Plugin.register_filter('prometheus', self)
+    include Fluent::Plugin::Prometheus
 
     def initialize
       super
@@ -12,8 +13,8 @@ module Fluent
 
     def configure(conf)
       super
-      labels = Fluent::Prometheus.parse_labels_elements(conf)
-      @metrics = Fluent::Prometheus.parse_metrics_elements(conf, @registry, labels)
+      labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
+      @metrics = Fluent::Plugin::Prometheus.parse_metrics_elements(conf, @registry, labels)
     end
 
     def filter_stream(tag, es)
