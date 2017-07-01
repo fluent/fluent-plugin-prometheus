@@ -10,8 +10,8 @@ If you are using Fluentd v0.10, you have to explicitly install [fluent-plugin-re
 
 | fluent-plugin-prometheus | fluentd    | ruby   |
 |--------------------------|------------|--------|
-| >= 0.4.0                 | >= v0.14.8 | >= 2.1 |
-| < 0.4.0                  | >= v0.12.0 | >= 1.9 |
+| 1.x.y                    | >= v0.14.8 | >= 2.1 |
+| 0.x.y                    | >= v0.12.0 | >= 1.9 |
 
 ## Installation
 
