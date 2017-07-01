@@ -1,6 +1,8 @@
 # fluent-plugin-prometheus, a plugin for [Fluentd](https://www.fluentd.org)
 
-[![Build Status](https://travis-ci.org/kazegusuri/fluent-plugin-prometheus.svg?branch=master)](https://travis-ci.org/kazegusuri/fluent-plugin-prometheus)
+This is the branch to support Fluentd v0.12. If you want to use Fluentd v0.14 or later, see [master branch](https://github.com/kazegusuri/fluent-plugin-prometheus).
+
+[![Build Status](https://travis-ci.org/kazegusuri/fluent-plugin-prometheus.svg?branch=v0.12)](https://travis-ci.org/kazegusuri/fluent-plugin-prometheus)
 
 A fluent plugin that instruments metrics from records and exposes them via web interface. Intended to be used together with a [Prometheus server](https://github.com/prometheus/prometheus).
 
