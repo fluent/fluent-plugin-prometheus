@@ -1,4 +1,3 @@
-source 'https://rubygems.org'
-
-# Specify your gem's dependencies in fluent-plugin-prometheus.gemspec
+source 'https://rubygems.org/'
+gem 'fluentd', '~> 0.12.0'
 gemspec

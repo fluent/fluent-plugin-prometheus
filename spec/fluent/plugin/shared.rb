@@ -81,10 +81,14 @@ COUNTER_WITHOUT_KEY_CONFIG = BASE_CONFIG + %[
   </metric>
 ]
 
+def gen_time_suffix
+  return Time.now.to_f.to_s.gsub('.', '')
+end
+
 shared_context 'simple_config' do
   let(:orig_name) { 'simple_foo' }
   let(:config) { SIMPLE_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{Time.now.to_f}".to_sym }
+  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
   let(:counter) { registry.get(name) }
 end
 
@@ -99,14 +103,14 @@ end
 shared_context 'placeholder_config' do
   let(:orig_name) { 'placeholder_foo' }
   let(:config) { PLACEHOLDER_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{Time.now.to_f}".to_sym }
+  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
   let(:counter) { registry.get(name) }
 end
 
 shared_context 'counter_without_key_config' do
   let(:orig_name) { 'without_key_foo' }
   let(:config) { COUNTER_WITHOUT_KEY_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{Time.now.to_f}".to_sym }
+  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
   let(:counter) { registry.get(name) }
 end
 
@@ -172,7 +176,7 @@ shared_examples_for 'instruments record' do
 
     it 'instruments counter metric' do
       expect(counter.type).to eq(:counter)
-      expect(counter.get({test_key: 'test_value', key: 'foo1'})).to be_kind_of(Integer)
+      expect(counter.get({test_key: 'test_value', key: 'foo1'})).to be_kind_of(Numeric)
     end
 
     it 'instruments gauge metric' do
