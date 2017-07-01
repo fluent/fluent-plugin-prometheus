@@ -24,6 +24,7 @@ module Fluent::Plugin
       @server = WEBrick::HTTPServer.new(
         BindAddress: @bind,
         Port: @port,
+        MaxClients: 5,
         Logger: WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
         AccessLog: [],
       )
