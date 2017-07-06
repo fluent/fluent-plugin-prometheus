@@ -140,7 +140,7 @@ Default labels:
 With following configuration, those metrics are collected.
 
 <source>
-  @type prometheus_output_monitor
+  @type prometheus_tail_monitor
 </source>
 
 More configuration parameters:
