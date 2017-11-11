@@ -436,6 +436,6 @@ Then, make a graph on Prometheus UI. http://localhost:9090/
     <td>Copyright</td><td>Copyright (c) 2015- Masahiro Sano</td>
   </tr>
   <tr>
-    <td>License</td><td>MIT License</td>
+    <td>License</td><td>Apache License, Version 2.0</td>
   </tr>
 </table>
