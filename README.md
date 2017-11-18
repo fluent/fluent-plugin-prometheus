@@ -1,8 +1,8 @@
 # fluent-plugin-prometheus, a plugin for [Fluentd](https://www.fluentd.org)
 
-This is the branch to support Fluentd v0.12. If you want to use Fluentd v0.14 or later, see [master branch](https://github.com/kazegusuri/fluent-plugin-prometheus).
+This is the branch to support Fluentd v0.12. If you want to use Fluentd v0.14 or later, see [master branch](https://github.com/fluent/fluent-plugin-prometheus).
 
-[![Build Status](https://travis-ci.org/kazegusuri/fluent-plugin-prometheus.svg?branch=v0.12)](https://travis-ci.org/kazegusuri/fluent-plugin-prometheus)
+[![Build Status](https://travis-ci.org/fluent/fluent-plugin-prometheus.svg?branch=v0.12)](https://travis-ci.org/fluent/fluent-plugin-prometheus)
 
 A fluent plugin that instruments metrics from records and exposes them via web interface. Intended to be used together with a [Prometheus server](https://github.com/prometheus/prometheus).
 
@@ -375,7 +375,7 @@ In this case, `message_foo_counter` has `tag`, `hostname`, `key` and `data_type`
 Checkout repository and setup.
 
 ```
-$ git clone git://github.com/kazegusuri/fluent-plugin-prometheus
+$ git clone git://github.com/fluent/fluent-plugin-prometheus
 $ cd fluent-plugin-prometheus
 $ bundle install --path vendor/bundle
 ```
@@ -419,7 +419,7 @@ Then, make a graph on Prometheus UI. http://localhost:9090/
 
 ## Contributing
 
-1. Fork it ( https://github.com/kazegusuri/fluent-plugin-prometheus/fork )
+1. Fork it ( https://github.com/fluent/fluent-plugin-prometheus/fork )
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
