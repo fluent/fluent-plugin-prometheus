@@ -74,4 +74,28 @@ describe Fluent::Plugin::PrometheusInput do
       end
     end
   end
+
+  describe '#run_multi_workers' do
+    context '/metrics' do
+      Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
+        let(:config) { CONFIG + %[
+          port #{port - 2}
+        ] }
+
+        it 'should configure port using sequential number' do
+          driver = Fluent::Test::Driver::Input.new(Fluent::Plugin::PrometheusInput)
+          driver.instance.instance_eval{ @_fluentd_worker_id = 2 }
+          driver.configure(config)
+          expect(driver.instance.port).to eq(port)
+          driver.run(timeout: 1) do
+            Net::HTTP.start("127.0.0.1", port) do |http|
+              req = Net::HTTP::Get.new("/metrics")
+              res = http.request(req)
+              expect(res.code).to eq('200')
+            end
+          end
+        end
+      end
+    end
+  end
 end

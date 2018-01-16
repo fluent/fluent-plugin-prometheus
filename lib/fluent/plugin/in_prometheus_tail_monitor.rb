@@ -20,11 +20,15 @@ module Fluent::Plugin
       @registry = ::Prometheus::Client.registry
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def configure(conf)
       super
       hostname = Socket.gethostname
       expander = Fluent::Plugin::Prometheus.placeholder_expander(log)
-      placeholders = expander.prepare_placeholders({'hostname' => hostname})
+      placeholders = expander.prepare_placeholders({'hostname' => hostname, 'worker_id' => fluentd_worker_id})
       @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
       @base_labels.each do |key, value|
         @base_labels[key] = expander.expand(value, placeholders)

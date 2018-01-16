@@ -19,8 +19,19 @@ module Fluent::Plugin
       @registry = ::Prometheus::Client.registry
     end
 
+    def configure(conf)
+      super
+      @port += fluentd_worker_id
+    end
+
+    def multi_workers_ready?
+      true
+    end
+
     def start
       super
+
+      log.debug "listening prometheus http server on http://#{@bind}:#{@port}/#{@metrics_path} for worker#{fluentd_worker_id}"
       @server = WEBrick::HTTPServer.new(
         BindAddress: @bind,
         Port: @port,
