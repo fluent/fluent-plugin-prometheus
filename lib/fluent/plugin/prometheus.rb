@@ -4,6 +4,31 @@ require 'fluent/plugin/filter_record_transformer'
 
 module Fluent
   module Plugin
+    module PrometheusLabelParser
+      def configure(conf)
+        super
+        # Check if running with multiple workers
+        sysconf = if self.respond_to?(:owner) && owner.respond_to?(:system_config)
+          owner.system_config
+        elsif self.respond_to?(:system_config)
+          self.system_config
+        else
+          nil
+        end
+        @multi_worker = sysconf && sysconf.workers ? (sysconf.workers > 1) : false
+      end
+
+      def parse_labels_elements(conf)
+        base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
+
+        if @multi_worker
+          base_labels[:worker_id] = fluentd_worker_id.to_s
+        end
+
+        base_labels
+      end
+    end
+
     module Prometheus
       class AlreadyRegisteredError < StandardError; end
 
