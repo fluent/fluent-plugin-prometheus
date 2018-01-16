@@ -61,6 +61,8 @@ More configuration parameters:
 - `port`: listen port (defaut: 24231)
 - `metrics_path`: metrics HTTP endpoint (default: /metrics)
 
+When using multiple workers, each worker binds to port + `fluent_worker_id`.
+
 ### prometheus_monitor input plugin
 
 This plugin collects internal metrics in Fluentd. The metrics are similar to/part of [monitor_agent](http://docs.fluentd.org/articles/monitoring#monitoring-agent).
@@ -338,6 +340,7 @@ You can use placeholder for label values. The placeholders will be expanded from
 Reserved placeholders are:
 
 - `${hostname}`: hostname
+- `${worker_id}`: fluent worker id
 - `${tag}`: tag name
 
 
