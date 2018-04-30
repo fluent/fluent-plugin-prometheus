@@ -69,7 +69,7 @@ module Fluent::Plugin
         tails = info['instance_variables'][:tails]
         next if tails.nil?
 
-        tails.each do |_, watcher|
+        tails.clone.each do |_, watcher|
           # Access to internal variable of internal class...
           # Very fragile implementation
           pe = watcher.instance_variable_get(:@pe)
