@@ -340,9 +340,10 @@ Reserved placeholders are:
 - `${hostname}`: hostname
 - `${worker_id}`: fluent worker id
 - `${tag}`: tag name
+  - only availabe in prometheus output/filter plugin
 
 
-### top-label labels and labels inside metric
+### top-level labels and labels inside metric
 
 Prometheus output/filter plugin can have multiple metric section. Top-level labels section spcifies labels for all metrics. Labels section insede metric section specifis labels for the metric. Both are specified, labels are merged.
 
