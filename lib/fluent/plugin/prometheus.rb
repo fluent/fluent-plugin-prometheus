@@ -60,6 +60,7 @@ module Fluent
         placeholder_values = {
           'tag' => tag,
           'hostname' => @hostname,
+          'worker_id' => fluentd_worker_id,
         }
 
         es.each do |time, record|
