@@ -73,9 +73,11 @@ Current exposed metrics:
 
 With following configuration, those metrics are collected.
 
+```
 <source>
   @type prometheus_monitor
 </source>
+```
 
 More configuration parameters:
 
@@ -107,9 +109,11 @@ Current exposed metrics:
 
 With following configuration, those metrics are collected.
 
+```
 <source>
   @type prometheus_output_monitor
 </source>
+```
 
 More configuration parameters:
 
@@ -139,9 +143,11 @@ Default labels:
 
 With following configuration, those metrics are collected.
 
+```
 <source>
   @type prometheus_tail_monitor
 </source>
+```
 
 More configuration parameters:
 
