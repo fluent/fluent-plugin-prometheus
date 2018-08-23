@@ -12,6 +12,23 @@ module Fluent::Plugin
     config_param :port, :integer, default: 24231
     config_param :metrics_path, :string, default: '/metrics'
 
+    desc 'Enable ssl configuration for the server'
+    config_section :ssl, required: false, multi: false do
+      config_param :enable, :bool, default: false
+
+      desc 'Path to the ssl certificate in PEM format.  Read from file and added to conf as "SSLCertificate"'
+      config_param :certificate_path, :string, default: nil
+
+      desc 'Path to the ssl private key in PEM format.  Read from file and added to conf as "SSLPrivateKey"'
+      config_param :private_key_path, :string, default: nil
+
+      desc 'Path to CA in PEM format.  Read from file and added to conf as "SSLCACertificateFile"'
+      config_param :ca_path, :string, default: nil
+
+      desc 'Additional ssl conf for the server.  Ref: https://github.com/ruby/webrick/blob/master/lib/webrick/ssl.rb'
+      config_param :extra_conf, :hash, default: {:SSLCertName => [['CN','nobody'],['DC','example']]}, symbolize_keys: true
+    end
+
     attr_reader :registry
 
     def initialize
@@ -30,15 +47,40 @@ module Fluent::Plugin
 
     def start
       super
-
       log.debug "listening prometheus http server on http://#{@bind}:#{@port}/#{@metrics_path} for worker#{fluentd_worker_id}"
-      @server = WEBrick::HTTPServer.new(
+      config = {
         BindAddress: @bind,
         Port: @port,
         MaxClients: 5,
         Logger: WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
         AccessLog: [],
-      )
+      }
+      unless @ssl.nil? || !@ssl['enable']
+        require 'webrick/https'
+        require 'openssl'
+        if (@ssl['certificate_path'] && @ssl['private_key_path'].nil?) || (@ssl['certificate_path'].nil? && @ssl['private_key_path'])
+            raise RuntimeError.new("certificate_path and private_key_path most both be defined")
+        end
+        ssl_config = {
+            SSLEnable: true
+        }
+        if @ssl['certificate_path']
+          cert = OpenSSL::X509::Certificate.new(File.read(@ssl['certificate_path']))
+          ssl_config[:SSLCertificate] = cert
+        end
+        if @ssl['private_key_path']
+          key = OpenSSL::PKey::RSA.new(File.read(@ssl['private_key_path']))
+          ssl_config[:SSLPrivateKey] = key
+        end
+        ssl_config[:SSLCACertificateFile] = @ssl['ca_path'] if @ssl['ca_path']
+        ssl_config = ssl_config.merge(@ssl['extra_conf'])
+        config = ssl_config.merge(config)
+      end
+      @log.on_debug do
+        @log.debug("WEBrick conf: #{config}")
+      end
+
+      @server = WEBrick::HTTPServer.new(config)
       @server.mount(@metrics_path, MonitorServlet, self)
       thread_create(:in_prometheus) do
         @server.start
