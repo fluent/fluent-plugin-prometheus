@@ -7,8 +7,6 @@ module Fluent
     module Prometheus
       class AlreadyRegisteredError < StandardError; end
 
-      helpers :record_accessor
-
       def self.parse_labels_elements(conf)
         labels = conf.elements.select { |e| e.name == 'labels' }
         if labels.size > 1
@@ -19,7 +17,7 @@ module Fluent
         unless labels.empty?
           labels.first.each do |key, value|
             labels.first.has_key?(key)
-            base_labels[key.to_sym] = record_accessor_create(value)
+            base_labels[key.to_sym] = PluginHelper::RecordAccessor::Accessor.new(value)
           end
         end
 
