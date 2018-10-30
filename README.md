@@ -341,6 +341,8 @@ All labels sections has same format. Each lines have key/value for label.
 
 You can use placeholder for label values. The placeholders will be expanded from records or reserved values. If you specify `${foo}`, it will be expanded by value of `foo` in record.
 
+You can access nested fields in records via dot or bracket notation (https://docs.fluentd.org/v1.0/articles/api-plugin-helper-record_accessor#syntax), for example: `$.kubernetes.namespace`.
+
 Reserved placeholders are:
 
 - `${hostname}`: hostname

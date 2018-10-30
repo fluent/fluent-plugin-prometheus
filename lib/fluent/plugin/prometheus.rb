@@ -17,7 +17,8 @@ module Fluent
         unless labels.empty?
           labels.first.each do |key, value|
             labels.first.has_key?(key)
-            base_labels[key.to_sym] = value
+
+            base_labels[key.to_sym] = PluginHelper::RecordAccessor::Accessor.new(value)
           end
         end
 
@@ -101,7 +102,8 @@ module Fluent
         def labels(record, expander, placeholders)
           label = {}
           @base_labels.each do |k, v|
-            label[k] = expander.expand(v, placeholders)
+            accessor_value = v.call(record)
+            label[k] = accessor_value.nil? ? expander.expand(v.keys, placeholders) : accessor_value
           end
           label
         end
