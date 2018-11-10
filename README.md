@@ -339,9 +339,11 @@ You can add labels with static value or dynamic value from records. In `promethe
 
 All labels sections has same format. Each lines have key/value for label.
 
-You can use placeholder for label values. The placeholders will be expanded from records or reserved values. If you specify `${foo}`, it will be expanded by value of `foo` in record.
+You can access nested fields in records via dot or bracket notation (https://docs.fluentd.org/v1.0/articles/api-plugin-helper-record_accessor#syntax), for example: `$.kubernetes.namespace`, `$['key1'][0]['key2']`. The record accessor is enable only if the value starts with `$.` or `$[`. Other values are handled as raw string as is and may be expanded by placeholder described later.
 
-You can access nested fields in records via dot or bracket notation (https://docs.fluentd.org/v1.0/articles/api-plugin-helper-record_accessor#syntax), for example: `$.kubernetes.namespace`.
+You can use placeholder for label values. The placeholders will be expanded from reserved values and records.
+If you specify `${hostname}`, it will be expanded by value of a hostname where fluentd runs.
+The placeholder for records is deprecated. Use record accessor syntax instead.
 
 Reserved placeholders are:
 

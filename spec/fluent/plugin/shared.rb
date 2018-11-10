@@ -73,6 +73,18 @@ PLACEHOLDER_CONFIG = BASE_CONFIG + %[
   </labels>
 ]
 
+ACCESSOR_CONFIG = BASE_CONFIG + %[
+  <metric>
+    name accessor_foo
+    type counter
+    desc Something foo.
+    key foo
+    <labels>
+      foo $.foo
+    </labels>
+  </metric>
+]
+
 COUNTER_WITHOUT_KEY_CONFIG = BASE_CONFIG + %[
   <metric>
     name without_key_foo
@@ -107,6 +119,13 @@ shared_context 'placeholder_config' do
   let(:counter) { registry.get(name) }
 end
 
+shared_context 'accessor_config' do
+  let(:orig_name) { 'accessor_foo' }
+  let(:config) { ACCESSOR_CONFIG.gsub(orig_name, name.to_s) }
+  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
+  let(:counter) { registry.get(name) }
+end
+
 shared_context 'counter_without_key_config' do
   let(:orig_name) { 'without_key_foo' }
   let(:config) { COUNTER_WITHOUT_KEY_CONFIG.gsub(orig_name, name.to_s) }
@@ -134,6 +153,11 @@ shared_examples_for 'output configuration' do
 
   describe 'configure placeholder configuration' do
     include_context 'placeholder_config'
+    it { expect{driver}.not_to raise_error }
+  end
+
+  describe 'configure accessor configuration' do
+    include_context 'accessor_config'
     it { expect{driver}.not_to raise_error }
   end
 
@@ -214,6 +238,22 @@ shared_examples_for 'instruments record' do
       expect(key[:hostname]).not_to eq("${hostname}")
       expect(key[:hostname]).not_to be_empty
       expect(key[:foo]).to eq("100")
+    end
+  end
+
+  context 'accessor config' do
+    include_context 'accessor_config'
+
+    before :each do
+      es
+    end
+
+    it 'expands accessor with record values' do
+      expect(registry.metrics.map(&:name)).to include(name)
+      expect(counter).to be_kind_of(::Prometheus::Client::Metric)
+      key, _ = counter.values.find {|k,v| v ==  100 }
+      expect(key).to be_kind_of(Hash)
+      expect(key[:foo]).to eq(100)
     end
   end
 
