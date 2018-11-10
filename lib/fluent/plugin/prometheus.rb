@@ -18,7 +18,13 @@ module Fluent
           labels.first.each do |key, value|
             labels.first.has_key?(key)
 
-            base_labels[key.to_sym] = PluginHelper::RecordAccessor::Accessor.new(value)
+            # use RecordAccessor only for $. and $[ syntax
+            # otherwise use the value as is or expand the value by RecordTransformer for ${} syntax
+            if value.start_with?('$.') || value.start_with?('$[')
+              base_labels[key.to_sym] = PluginHelper::RecordAccessor::Accessor.new(value)
+            else
+              base_labels[key.to_sym] = value
+            end
           end
         end
 
@@ -102,8 +108,11 @@ module Fluent
         def labels(record, expander, placeholders)
           label = {}
           @base_labels.each do |k, v|
-            accessor_value = v.call(record)
-            label[k] = accessor_value.nil? ? expander.expand(v.keys, placeholders) : accessor_value
+            if v.is_a?(String)
+              label[k] = expander.expand(v, placeholders)
+            else
+              label[k] = v.call(record)
+            end
           end
           label
         end

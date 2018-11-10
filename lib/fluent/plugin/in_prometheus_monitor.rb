@@ -27,7 +27,9 @@ module Fluent::Plugin
       placeholders = expander.prepare_placeholders({'hostname' => hostname, 'worker_id' => fluentd_worker_id})
       @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
       @base_labels.each do |key, value|
-        @base_labels[key] = expander.expand(value, placeholders)
+        if value.is_a?(String)
+          @base_labels[key] = expander.expand(value, placeholders)
+        end
       end
 
       if defined?(Fluent::Plugin) && defined?(Fluent::Plugin::MonitorAgentInput)
