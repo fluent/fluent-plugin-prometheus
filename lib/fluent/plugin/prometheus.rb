@@ -36,6 +36,10 @@ module Fluent
         conf.elements.select { |element|
           element.name == 'metric'
         }.each { |element|
+          if element.has_key?('key') && (element['key'].start_with?('$.') || element['key'].start_with?('$['))
+            value = element['key']
+            element['key'] = PluginHelper::RecordAccessor::Accessor.new(value)
+          end
           case element['type']
           when 'summary'
             metrics << Fluent::Plugin::Prometheus::Summary.new(element, registry, labels)
@@ -147,8 +151,13 @@ module Fluent
         end
 
         def instrument(record, expander, placeholders)
-          if record[@key]
-            @gauge.set(labels(record, expander, placeholders), record[@key])
+          if @key.is_a?(String)
+            value = record[@key]
+          else
+            value = @key.call(record)
+          end
+          if value
+            @gauge.set(labels(record, expander, placeholders), value)
           end
         end
       end
@@ -165,7 +174,13 @@ module Fluent
 
         def instrument(record, expander, placeholders)
           # use record value of the key if key is specified, otherwise just increment
-          value = @key ? record[@key] : 1
+          if @key.nil?
+            value = 1
+          elsif @key.is_a?(String)
+            value = record[@key]
+          else
+            value = @key.call(record)
+          end
 
           # ignore if record value is nil
           return if value.nil?
@@ -189,8 +204,13 @@ module Fluent
         end
 
         def instrument(record, expander, placeholders)
-          if record[@key]
-            @summary.observe(labels(record, expander, placeholders), record[@key])
+          if @key.is_a?(String)
+            value = record[@key]
+          else
+            value = @key.call(record)
+          end
+          if value
+            @summary.observe(labels(record, expander, placeholders), value)
           end
         end
       end
@@ -217,8 +237,13 @@ module Fluent
         end
 
         def instrument(record, expander, placeholders)
-          if record[@key]
-            @histogram.observe(labels(record, expander, placeholders), record[@key])
+          if @key.is_a?(String)
+            value = record[@key]
+          else
+            value = @key.call(record)
+          end
+          if value
+            @histogram.observe(labels(record, expander, placeholders), value)
           end
         end
       end
