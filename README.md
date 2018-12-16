@@ -224,6 +224,8 @@ In output plugin style:
 
 With above configuration, the plugin collects a metric named `message_foo_counter` from key `foo` of each records.
 
+You can access nested keys in records via dot or bracket notation (https://docs.fluentd.org/v1.0/articles/api-plugin-helper-record_accessor#syntax), for example: `$.kubernetes.namespace`, `$['key1'][0]['key2']`. The record accessor is enable only if the value starts with `$.` or `$[`.
+
 See Supported Metric Type and Labels for more configuration parameters.
 
 ## Supported Metric Types

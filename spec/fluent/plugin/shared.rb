@@ -52,6 +52,24 @@ FULL_CONFIG = BASE_CONFIG + %[
       key foo4
     </labels>
   </metric>
+  <metric>
+    name full_accessor1
+    type summary
+    desc Something with accessor.
+    key $.foo
+    <labels>
+      key foo5
+    </labels>
+  </metric>
+  <metric>
+    name full_accessor2
+    type counter
+    desc Something with accessor.
+    key $.foo
+    <labels>
+      key foo6
+    </labels>
+  </metric>
   <labels>
     test_key test_value
   </labels>
@@ -110,6 +128,8 @@ shared_context 'full_config' do
   let(:gauge) { registry.get(:full_bar) }
   let(:summary) { registry.get(:full_baz) }
   let(:histogram) { registry.get(:full_qux) }
+  let(:summary_with_accessor) { registry.get(:full_accessor1) }
+  let(:counter_with_accessor) { registry.get(:full_accessor2) }
 end
 
 shared_context 'placeholder_config' do
@@ -192,15 +212,20 @@ shared_examples_for 'instruments record' do
       expect(registry.metrics.map(&:name)).to include(:full_foo)
       expect(registry.metrics.map(&:name)).to include(:full_bar)
       expect(registry.metrics.map(&:name)).to include(:full_baz)
+      expect(registry.metrics.map(&:name)).to include(:full_accessor1)
+      expect(registry.metrics.map(&:name)).to include(:full_accessor2)
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       expect(gauge).to be_kind_of(::Prometheus::Client::Metric)
       expect(summary).to be_kind_of(::Prometheus::Client::Metric)
+      expect(summary_with_accessor).to be_kind_of(::Prometheus::Client::Metric)
+      expect(counter_with_accessor).to be_kind_of(::Prometheus::Client::Metric)
       expect(histogram).to be_kind_of(::Prometheus::Client::Metric)
     end
 
     it 'instruments counter metric' do
       expect(counter.type).to eq(:counter)
       expect(counter.get({test_key: 'test_value', key: 'foo1'})).to be_kind_of(Numeric)
+      expect(counter_with_accessor.get({test_key: 'test_value', key: 'foo6'})).to be_kind_of(Numeric)
     end
 
     it 'instruments gauge metric' do
@@ -212,6 +237,7 @@ shared_examples_for 'instruments record' do
       expect(summary.type).to eq(:summary)
       expect(summary.get({test_key: 'test_value', key: 'foo3'})).to be_kind_of(Hash)
       expect(summary.get({test_key: 'test_value', key: 'foo3'})[0.99]).to eq(100)
+      expect(summary_with_accessor.get({test_key: 'test_value', key: 'foo5'})[0.99]).to eq(100)
     end
 
     it 'instruments histogram metric' do
