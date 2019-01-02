@@ -42,8 +42,8 @@ See [sample configuration](./misc/fluentd_sample.conf), or try [tutorial](#try-p
 
 ### prometheus input plugin
 
-You have to configure this plugin to expose metrics collected by other promtheus plugins.
-This plugin provides a metrics HTTP endpoint to be scraped by a prometheus server on 24231/tcp(default).
+You have to configure this plugin to expose metrics collected by other Prometheus plugins.
+This plugin provides a metrics HTTP endpoint to be scraped by a Prometheus server on 24231/tcp(default).
 
 With following configuration, you can access http://localhost:24231/metrics on a server where fluentd running.
 
@@ -56,7 +56,7 @@ With following configuration, you can access http://localhost:24231/metrics on a
 More configuration parameters:
 
 - `bind`: binding interface (default: '0.0.0.0')
-- `port`: listen port (defaut: 24231)
+- `port`: listen port (default: 24231)
 - `metrics_path`: metrics HTTP endpoint (default: /metrics)
 
 When using multiple workers, each worker binds to port + `fluent_worker_id`.
@@ -352,12 +352,12 @@ Reserved placeholders are:
 - `${hostname}`: hostname
 - `${worker_id}`: fluent worker id
 - `${tag}`: tag name
-  - only availabe in prometheus output/filter plugin
+  - only available in Prometheus output/filter plugin
 
 
 ### top-level labels and labels inside metric
 
-Prometheus output/filter plugin can have multiple metric section. Top-level labels section spcifies labels for all metrics. Labels section insede metric section specifis labels for the metric. Both are specified, labels are merged.
+Prometheus output/filter plugin can have multiple metric section. Top-level labels section specifies labels for all metrics. Labels section inside metric section specifies labels for the metric. Both are specified, labels are merged.
 
 ```
 <filter message>
@@ -401,7 +401,7 @@ $ cd fluent-plugin-prometheus
 $ bundle install --path vendor/bundle
 ```
 
-Download pre-compiled prometheus binary and start it. It listens on 9090.
+Download pre-compiled Prometheus binary and start it. It listens on 9090.
 
 ```
 $ wget https://github.com/prometheus/prometheus/releases/download/v1.5.2/prometheus-1.5.2.linux-amd64.tar.gz -O - | tar zxf -
