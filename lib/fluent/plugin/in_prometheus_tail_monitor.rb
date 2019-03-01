@@ -40,6 +40,10 @@ module Fluent::Plugin
       else
         @monitor_agent = Fluent::MonitorAgentInput.new
       end
+    end
+
+    def start
+      super
 
       @metrics = {
         position: @registry.gauge(
@@ -49,10 +53,6 @@ module Fluent::Plugin
           :fluentd_tail_file_inode,
           'Current inode of file.'),
       }
-    end
-
-    def start
-      super
       timer_execute(:in_prometheus_tail_monitor, @interval, &method(:update_monitor_info))
     end
 

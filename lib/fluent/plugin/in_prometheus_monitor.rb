@@ -39,6 +39,11 @@ module Fluent::Plugin
         @monitor_agent = Fluent::MonitorAgentInput.new
       end
 
+    end
+
+    def start
+      super
+
       buffer_queue_length = @registry.gauge(
         :fluentd_status_buffer_queue_length,
         'Current buffer queue length.')
@@ -54,10 +59,6 @@ module Fluent::Plugin
         'buffer_total_queued_size' => buffer_total_queued_size,
         'retry_count' => retry_counts,
       }
-    end
-
-    def start
-      super
       timer_execute(:in_prometheus_monitor, @interval, &method(:update_monitor_info))
     end
 
