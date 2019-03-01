@@ -11,6 +11,10 @@ module Fluent::Plugin
       @registry = ::Prometheus::Client.registry
     end
 
+    def multi_workers_ready?
+      true
+    end
+
     def configure(conf)
       super
       labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
