@@ -51,6 +51,10 @@ module Fluent::Plugin
       else
         @monitor_agent = Fluent::MonitorAgentInput.new
       end
+    end
+
+    def start
+      super
 
       @metrics = {
         buffer_queue_length: @registry.gauge(
@@ -81,10 +85,6 @@ module Fluent::Plugin
           :fluentd_output_status_retry_wait,
           'Current retry wait'),
       }
-    end
-
-    def start
-      super
       timer_execute(:in_prometheus_output_monitor, @interval, &method(:update_monitor_info))
     end
 
