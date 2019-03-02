@@ -8,8 +8,17 @@ describe Fluent::Plugin::PrometheusMonitorInput do
   <labels>
     host ${hostname}
     foo bar
-    no_effect1 $.foo.bar
-    no_effect2 $[0][1]
+  </labels>
+]
+
+  INVALID_MONITOR_CONFIG = %[
+  @type prometheus_monitor
+
+  <labels>
+    host ${hostname}
+    foo bar
+    invalid_use1 $.foo.bar
+    invalid_use2 $[0][1]
   </labels>
 ]
 
@@ -18,8 +27,17 @@ describe Fluent::Plugin::PrometheusMonitorInput do
   let(:driver) { Fluent::Test::Driver::Input.new(Fluent::Plugin::PrometheusMonitorInput).configure(config) }
 
   describe '#configure' do
-    it 'does not raise error' do
-      expect{driver}.not_to raise_error
+    describe 'valid' do
+      it 'does not raise error' do
+        expect{driver}.not_to raise_error
+      end
+    end
+
+    describe 'invalid' do
+      let(:config) { INVALID_MONITOR_CONFIG }
+      it 'expect raise error' do
+        expect{driver}.to raise_error
+      end
     end
   end
 end

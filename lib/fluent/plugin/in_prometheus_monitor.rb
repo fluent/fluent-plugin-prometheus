@@ -27,9 +27,10 @@ module Fluent::Plugin
       placeholders = expander.prepare_placeholders({'hostname' => hostname, 'worker_id' => fluentd_worker_id})
       @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
       @base_labels.each do |key, value|
-        if value.is_a?(String)
-          @base_labels[key] = expander.expand(value, placeholders)
+        unless value.is_a?(String)
+          raise Fluent::ConfigError, "record accessor syntax is not available in prometheus_monitor"
         end
+        @base_labels[key] = expander.expand(value, placeholders)
       end
 
       if defined?(Fluent::Plugin) && defined?(Fluent::Plugin::MonitorAgentInput)
