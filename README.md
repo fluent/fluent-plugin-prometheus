@@ -351,8 +351,10 @@ Reserved placeholders are:
 
 - `${hostname}`: hostname
 - `${worker_id}`: fluent worker id
-- `${tag}`: tag name
-  - only available in Prometheus output/filter plugin
+- `${tag}`: tag name, only available in Prometheus output/filter plugin
+- `${tag_parts[N]}`: refers to the Nth part of the tag, only available in Prometheus output/filter plugin
+- `${tag_suffix}`: refers to the [N..] part of the tag, only available in Prometheus output/filter plugin
+- `${tag_prefix}`: refers to the [0..N] part of the tag, only available in Prometheus output/filter plugin
 
 
 ### top-level labels and labels inside metric
