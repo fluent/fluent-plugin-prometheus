@@ -67,9 +67,35 @@ module Fluent
         @hostname = Socket.gethostname
       end
 
+      def tag_prefix(tag_parts)
+        return [] if tag_parts.empty?
+        tag_prefix = [tag_parts.first]
+        1.upto(tag_parts.size-1).each do |i|
+          tag_prefix[i] = "#{tag_prefix[i-1]}.#{tag_parts[i]}"
+        end
+        tag_prefix
+      end
+  
+      def tag_suffix(tag_parts)
+        return [] if tag_parts.empty?
+        rev_tag_parts = tag_parts.reverse
+        rev_tag_suffix = [rev_tag_parts.first]
+        1.upto(tag_parts.size-1).each do |i|
+          rev_tag_suffix[i] = "#{rev_tag_parts[i]}.#{rev_tag_suffix[i-1]}"
+        end
+        rev_tag_suffix.reverse!
+      end      
+
       def instrument(tag, es, metrics)
+        tag_parts = tag.split('.')
+        tag_prefix = tag_prefix(tag_parts)
+        tag_suffix = tag_suffix(tag_parts)
+          
         placeholder_values = {
           'tag' => tag,
+          'tag_parts'  => tag_parts,
+          'tag_prefix' => tag_prefix,
+          'tag_suffix' => tag_suffix,          
           'hostname' => @hostname,
           'worker_id' => fluentd_worker_id,
         }
