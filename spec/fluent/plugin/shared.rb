@@ -83,11 +83,15 @@ PLACEHOLDER_CONFIG = BASE_CONFIG + %[
     key foo
     <labels>
       foo ${foo}
+      the_prefix ${tag_prefix[2]}
+      another_part ${tag_parts[0]}
     </labels>
   </metric>
   <labels>
     tag ${tag}
     hostname ${hostname}
+    single_part ${tag_parts[1]}
+    the_suffix ${tag_suffix[2]}
   </labels>
 ]
 

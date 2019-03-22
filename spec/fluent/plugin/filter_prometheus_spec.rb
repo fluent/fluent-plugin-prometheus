@@ -2,9 +2,10 @@ require 'spec_helper'
 require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_prometheus'
 require_relative 'shared'
+require 'json'
 
 describe Fluent::Plugin::PrometheusFilter do
-  let(:tag) { 'prometheus.test' }
+  let(:tag) { 'prometheus.test.additional.parts' }
   let(:driver) { Fluent::Test::Driver::Filter.new(Fluent::Plugin::PrometheusFilter).configure(config) }
   let(:registry) { ::Prometheus::Client.registry }
 
@@ -32,7 +33,4 @@ describe Fluent::Plugin::PrometheusFilter do
         expect(es.first).to eq(message)
       end
     end
-
-    it_behaves_like 'instruments record'
-  end
 end
