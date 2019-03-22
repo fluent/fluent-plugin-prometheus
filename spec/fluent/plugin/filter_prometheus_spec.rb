@@ -2,10 +2,9 @@ require 'spec_helper'
 require 'fluent/test/driver/filter'
 require 'fluent/plugin/filter_prometheus'
 require_relative 'shared'
-require 'json'
 
 describe Fluent::Plugin::PrometheusFilter do
-  let(:tag) { 'prometheus.test.additional.parts' }
+  let(:tag) { 'prometheus.test' }
   let(:driver) { Fluent::Test::Driver::Filter.new(Fluent::Plugin::PrometheusFilter).configure(config) }
   let(:registry) { ::Prometheus::Client.registry }
 
