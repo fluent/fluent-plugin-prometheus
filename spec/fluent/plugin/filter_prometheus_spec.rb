@@ -33,4 +33,7 @@ describe Fluent::Plugin::PrometheusFilter do
         expect(es.first).to eq(message)
       end
     end
+
+    it_behaves_like 'instruments record'
+  end
 end
