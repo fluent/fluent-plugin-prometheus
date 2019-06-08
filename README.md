@@ -63,7 +63,7 @@ When using multiple workers, each worker binds to port + `fluent_worker_id`.
 
 ### prometheus_monitor input plugin
 
-This plugin collects internal metrics in Fluentd. The metrics are similar to/part of [monitor_agent](http://docs.fluentd.org/articles/monitoring#monitoring-agent).
+This plugin collects internal metrics in Fluentd. The metrics are similar to/part of [monitor_agent](https://docs.fluentd.org/input/monitor_agent).
 
 Current exposed metrics:
 
@@ -224,7 +224,7 @@ In output plugin style:
 
 With above configuration, the plugin collects a metric named `message_foo_counter` from key `foo` of each records.
 
-You can access nested keys in records via dot or bracket notation (https://docs.fluentd.org/v1.0/articles/api-plugin-helper-record_accessor#syntax), for example: `$.kubernetes.namespace`, `$['key1'][0]['key2']`. The record accessor is enable only if the value starts with `$.` or `$[`.
+You can access nested keys in records via dot or bracket notation (https://docs.fluentd.org/plugin-helper-overview/api-plugin-helper-record_accessor#syntax), for example: `$.kubernetes.namespace`, `$['key1'][0]['key2']`. The record accessor is enable only if the value starts with `$.` or `$[`.
 
 See Supported Metric Type and Labels for more configuration parameters.
 
@@ -341,7 +341,7 @@ You can add labels with static value or dynamic value from records. In `promethe
 
 All labels sections has same format. Each lines have key/value for label.
 
-You can access nested fields in records via dot or bracket notation (https://docs.fluentd.org/v1.0/articles/api-plugin-helper-record_accessor#syntax), for example: `$.kubernetes.namespace`, `$['key1'][0]['key2']`. The record accessor is enable only if the value starts with `$.` or `$[`. Other values are handled as raw string as is and may be expanded by placeholder described later.
+You can access nested fields in records via dot or bracket notation (https://docs.fluentd.org/plugin-helper-overview/api-plugin-helper-record_accessor#syntax), for example: `$.kubernetes.namespace`, `$['key1'][0]['key2']`. The record accessor is enable only if the value starts with `$.` or `$[`. Other values are handled as raw string as is and may be expanded by placeholder described later.
 
 You can use placeholder for label values. The placeholders will be expanded from reserved values and records.
 If you specify `${hostname}`, it will be expanded by value of a hostname where fluentd runs.
