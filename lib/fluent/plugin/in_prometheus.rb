@@ -104,10 +104,10 @@ module Fluent::Plugin
         res.status = 200
         res['Content-Type'] = ::Prometheus::Client::Formats::Text::CONTENT_TYPE
         res.body = ::Prometheus::Client::Formats::Text.marshal(@prometheus.registry)
-      rescue
+      rescue => e
         res.status = 500
         res['Content-Type'] = 'text/plain'
-        res.body = $!.to_s
+        res.body = e.to_s ++ "\n\n" + e.backtrace.join("\n")
       end
     end
   end
