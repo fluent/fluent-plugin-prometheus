@@ -67,7 +67,7 @@ This plugin collects internal metrics in Fluentd. The metrics are similar to/par
 
 Current exposed metrics:
 
-- `buffere_queue_length` of each BufferedOutput plugins
+- `buffer_queue_length` of each BufferedOutput plugins
 - `buffer_total_queued_size` of each BufferedOutput plugins
 - `retry_count` of each BufferedOutput plugins
 
@@ -97,6 +97,8 @@ Current exposed metrics:
 - `fluentd_output_status_retry_count`
 - `fluentd_output_status_num_errors`
 - `fluentd_output_status_emit_count`
+- `fluentd_output_status_flush_time_count`
+- `fluentd_output_status_slow_flush_count`
 - `fluentd_output_status_retry_wait`
     - current retry_wait computed from last retry time and next retry time
 - `fluentd_output_status_emit_records`
