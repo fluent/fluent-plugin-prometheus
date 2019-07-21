@@ -24,6 +24,10 @@ module Fluent::Plugin
       :emit_records,
       :write_count,
       :rollback_count,
+
+      # from v1.6.0
+      :flush_time_count,
+      :slow_flush_count,
     ]
 
     def initialize
@@ -84,6 +88,12 @@ module Fluent::Plugin
         rollback_count: @registry.gauge(
           :fluentd_output_status_rollback_count,
           'Current rollback counts.'),
+        flush_time_count: @registry.gauge(
+          :fluentd_output_status_flush_time_count,
+          'Total flush time.'),
+        slow_flush_count: @registry.gauge(
+          :fluentd_output_status_slow_flush_count,
+          'Current slow flush counts.'),
         retry_wait: @registry.gauge(
           :fluentd_output_status_retry_wait,
           'Current retry wait'),
@@ -112,6 +122,8 @@ module Fluent::Plugin
         emit_count: @metrics[:emit_count],
         emit_records: @metrics[:emit_records],
         rollback_count: @metrics[:rollback_count],
+        flush_time_count: @metrics[:flush_time_count],
+        slow_flush_count: @metrics[:slow_flush_count],
       }
 
       agent_info.each do |info|
