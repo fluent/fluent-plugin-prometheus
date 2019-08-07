@@ -60,6 +60,12 @@ module Fluent::Plugin
       super
 
       @metrics = {
+        buffer_newest_timekey: @registry.gauge(
+          :fluentd_output_status_buffer_newest_timekey,
+          'Newest timekey in buffer.'),
+        buffer_oldest_timekey: @registry.gauge(
+          :fluentd_output_status_buffer_oldest_timekey,
+          'Oldest timekey in buffer.'),
         buffer_queue_length: @registry.gauge(
           :fluentd_output_status_buffer_queue_length,
           'Current buffer queue length.'),
@@ -121,6 +127,12 @@ module Fluent::Plugin
           if info[name]
             metric.set(label, info[name])
           end
+        end
+
+        timekeys = info["buffer_timekeys"]
+        if timekeys && !timekeys.empty?
+          @metrics[:buffer_newest_timekey].set(label, timekeys.max)
+          @metrics[:buffer_oldest_timekey].set(label, timekeys.min)
         end
 
         if info['instance_variables']
