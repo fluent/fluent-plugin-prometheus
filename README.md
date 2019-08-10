@@ -65,11 +65,16 @@ When using multiple workers, each worker binds to port + `fluent_worker_id`.
 
 This plugin collects internal metrics in Fluentd. The metrics are similar to/part of [monitor_agent](https://docs.fluentd.org/input/monitor_agent).
 
-Current exposed metrics:
 
-- `buffer_queue_length` of each BufferedOutput plugins
-- `buffer_total_queued_size` of each BufferedOutput plugins
-- `retry_count` of each BufferedOutput plugins
+#### Exposed metrics
+
+- `fluentd_status_buffer_queue_length`
+- `fluentd_status_buffer_total_queued_size`
+- `fluentd_status_retry_count`
+- `fluentd_status_buffer_newest_timekey` from fluentd v1.4.2
+- `fluentd_status_buffer_oldest_timekey` from fluentd v1.4.2
+
+#### Configuration
 
 With following configuration, those metrics are collected.
 
@@ -86,28 +91,35 @@ More configuration parameters:
 
 ### prometheus_output_monitor input plugin
 
-**experimental**
-
 This plugin collects internal metrics for output plugin in Fluentd. This is similar to `prometheus_monitor` plugin, but specialized for output plugin. There are Many metrics `prometheus_monitor` does not include, such as `num_errors`, `retry_wait` and so on.
 
-Current exposed metrics:
+#### Exposed metrics
 
-- `fluentd_output_status_buffer_queue_length`
-- `fluentd_output_status_buffer_total_bytes`
+Metrics for output
+
 - `fluentd_output_status_retry_count`
 - `fluentd_output_status_num_errors`
 - `fluentd_output_status_emit_count`
-- `fluentd_output_status_flush_time_count`
-- `fluentd_output_status_slow_flush_count`
 - `fluentd_output_status_retry_wait`
     - current retry_wait computed from last retry time and next retry time
 - `fluentd_output_status_emit_records`
-    - only for v0.14
 - `fluentd_output_status_write_count`
-    - only for v0.14
 - `fluentd_output_status_rollback_count`
-    - only for v0.14
+- `fluentd_output_status_flush_time_count` from fluentd v1.16.0
+- `fluentd_output_status_slow_flush_count` from fluentd v1.16.0
 
+Metrics for buffer
+
+- `fluentd_output_status_buffer_total_bytes`
+- `fluentd_output_status_buffer_stage_length` from fluentd v1.16.0
+- `fluentd_output_status_buffer_stage_byte_size` from fluentd v1.16.0
+- `fluentd_output_status_buffer_queue_length`
+- `fluentd_output_status_buffer_queue_byte_size` from fluentd v1.16.0
+- `fluentd_output_status_buffer_newest_timekey` from fluentd v1.16.0
+- `fluentd_output_status_buffer_oldest_timekey` from fluentd v1.16.0
+- `fluentd_output_status_buffer_available_space_ratio` from fluentd v1.16.0
+
+#### Configuration
 
 With following configuration, those metrics are collected.
 
@@ -124,13 +136,11 @@ More configuration parameters:
 
 ### prometheus_tail_monitor input plugin
 
-**experimental**
-
 This plugin collects internal metrics for in_tail plugin in Fluentd. in_tail plugin holds internal state for files that the plugin is watching. The state is sometimes important to monitor plugins work correctly.
 
 This plugin uses internal class of Fluentd, so it's easy to break.
 
-Current exposed metrics:
+#### Exposed metrics
 
 - `fluentd_tail_file_position`
     - Current bytes which plugin reads from the file
@@ -142,6 +152,8 @@ Default labels:
 - `plugin_id`: a value set for a plugin in configuration.
 - `type`: plugin name. `in_tail` only for now.
 - `path`: file path
+
+#### Configuration
 
 With following configuration, those metrics are collected.
 
