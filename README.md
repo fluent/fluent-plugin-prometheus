@@ -105,19 +105,19 @@ Metrics for output
 - `fluentd_output_status_emit_records`
 - `fluentd_output_status_write_count`
 - `fluentd_output_status_rollback_count`
-- `fluentd_output_status_flush_time_count` from fluentd v1.16.0
-- `fluentd_output_status_slow_flush_count` from fluentd v1.16.0
+- `fluentd_output_status_flush_time_count` from fluentd v1.6.0
+- `fluentd_output_status_slow_flush_count` from fluentd v1.6.0
 
 Metrics for buffer
 
 - `fluentd_output_status_buffer_total_bytes`
-- `fluentd_output_status_buffer_stage_length` from fluentd v1.16.0
-- `fluentd_output_status_buffer_stage_byte_size` from fluentd v1.16.0
+- `fluentd_output_status_buffer_stage_length` from fluentd v1.6.0
+- `fluentd_output_status_buffer_stage_byte_size` from fluentd v1.6.0
 - `fluentd_output_status_buffer_queue_length`
-- `fluentd_output_status_buffer_queue_byte_size` from fluentd v1.16.0
-- `fluentd_output_status_buffer_newest_timekey` from fluentd v1.16.0
-- `fluentd_output_status_buffer_oldest_timekey` from fluentd v1.16.0
-- `fluentd_output_status_buffer_available_space_ratio` from fluentd v1.16.0
+- `fluentd_output_status_buffer_queue_byte_size` from fluentd v1.6.0
+- `fluentd_output_status_buffer_newest_timekey` from fluentd v1.6.0
+- `fluentd_output_status_buffer_oldest_timekey` from fluentd v1.6.0
+- `fluentd_output_status_buffer_available_space_ratio` from fluentd v1.6.0
 
 #### Configuration
 
