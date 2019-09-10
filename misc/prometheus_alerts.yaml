@@ -47,7 +47,7 @@ ALERT FluentdQueueLength
   }
 
 ALERT FluentdRecordsCountsHigh
-  IF sum(rate(fluentd_record_counts{job="fluentd"}[5m])) BY (instance) >  (3 * sum(rate(fluentd_record_counts{job="fluentd"}[15m])) BY (instance))
+  IF sum(rate(fluentd_output_status_emit_records{job="fluentd"}[5m])) BY (instance) >  (3 * sum(rate(fluentd_output_status_emit_records{job="fluentd"}[15m])) BY (instance))
   FOR 1m
   LABELS {
     service = "fluentd",
