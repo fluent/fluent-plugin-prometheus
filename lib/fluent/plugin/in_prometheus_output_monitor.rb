@@ -5,6 +5,7 @@ require 'fluent/plugin/prometheus'
 module Fluent::Plugin
   class PrometheusOutputMonitorInput < Fluent::Input
     Fluent::Plugin.register_input('prometheus_output_monitor', self)
+    include Fluent::Plugin::PrometheusLabelParser
 
     helpers :timer
 
@@ -44,7 +45,7 @@ module Fluent::Plugin
       hostname = Socket.gethostname
       expander = Fluent::Plugin::Prometheus.placeholder_expander(log)
       placeholders = expander.prepare_placeholders({'hostname' => hostname, 'worker_id' => fluentd_worker_id})
-      @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(conf)
+      @base_labels = parse_labels_elements(conf)
       @base_labels.each do |key, value|
         unless value.is_a?(String)
           raise Fluent::ConfigError, "record accessor syntax is not available in prometheus_output_monitor"

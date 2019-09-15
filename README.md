@@ -58,8 +58,10 @@ More configuration parameters:
 - `bind`: binding interface (default: '0.0.0.0')
 - `port`: listen port (default: 24231)
 - `metrics_path`: metrics HTTP endpoint (default: /metrics)
+- `aggregated_metrics_path`: metrics HTTP endpoint (default: /aggregated_metrics)
 
 When using multiple workers, each worker binds to port + `fluent_worker_id`.
+To scrape metrics from all workers at once, you can access http://localhost:24231/aggregated_metrics.
 
 ### prometheus_monitor input plugin
 
