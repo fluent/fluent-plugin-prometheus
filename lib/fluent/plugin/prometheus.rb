@@ -113,12 +113,11 @@ module Fluent
       end
 
       def instrument(tag, es, metrics)
-        @placeholder_values[tag] ||= {
+        placeholder_values = {
           'tag' => tag,
           'hostname' => @hostname,
           'worker_id' => fluentd_worker_id,
         }
-        placeholder_values = @placeholder_values[tag]
 
         es.each do |time, record|
           placeholders = record.merge(placeholder_values)
