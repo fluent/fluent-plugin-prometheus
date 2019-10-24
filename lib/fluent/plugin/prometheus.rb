@@ -88,19 +88,20 @@ module Fluent
 
       def configure(conf)
         super
+        @placeholder_values = {}
         @placeholder_expander = Fluent::Plugin::Prometheus.placeholder_expander(log)
         @hostname = Socket.gethostname
       end
 
       def instrument(tag, es, metrics)
-        placeholder_values = {
+        @placeholder_values[tag] ||= {
           'tag' => tag,
           'hostname' => @hostname,
           'worker_id' => fluentd_worker_id,
         }
 
         es.each do |time, record|
-          placeholders = record.merge(placeholder_values)
+          placeholders = record.merge(@placeholder_values[tag])
           placeholders = @placeholder_expander.prepare_placeholders(placeholders)
           metrics.each do |metric|
             begin
