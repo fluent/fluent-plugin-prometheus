@@ -23,7 +23,7 @@ module Fluent::Plugin
     end
 
     def filter(tag, time, record)
-      instrument(tag, { time => record }, @metrics)
+      instrument_single(tag, time, record, @metrics)
       record
     end
   end

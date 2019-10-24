@@ -93,6 +93,25 @@ module Fluent
         @hostname = Socket.gethostname
       end
 
+      def instrument_single(tag, time, record, metrics)
+        @placeholder_values[tag] ||= {
+          'tag' => tag,
+          'hostname' => @hostname,
+          'worker_id' => fluentd_worker_id,
+        }
+
+        placeholders = record.merge(@placeholder_values[tag])
+        placeholders = @placeholder_expander.prepare_placeholders(placeholders)
+        metrics.each do |metric|
+          begin
+            metric.instrument(record, @placeholder_expander, placeholders)
+          rescue => e
+            log.warn "prometheus: failed to instrument a metric.", error_class: e.class, error: e, tag: tag, name: metric.name
+            router.emit_error_event(tag, time, record, e)
+          end
+        end
+      end
+
       def instrument(tag, es, metrics)
         @placeholder_values[tag] ||= {
           'tag' => tag,
