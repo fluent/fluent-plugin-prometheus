@@ -99,9 +99,10 @@ module Fluent
           'hostname' => @hostname,
           'worker_id' => fluentd_worker_id,
         }
+        placeholder_values = @placeholder_values[tag]
 
         es.each do |time, record|
-          placeholders = record.merge(@placeholder_values[tag])
+          placeholders = record.merge(placeholder_values)
           placeholders = @placeholder_expander.prepare_placeholders(placeholders)
           metrics.each do |metric|
             begin
