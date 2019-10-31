@@ -22,9 +22,9 @@ module Fluent::Plugin
       @metrics = Fluent::Plugin::Prometheus.parse_metrics_elements(conf, @registry, labels)
     end
 
-    def filter_stream(tag, es)
-      instrument(tag, es, @metrics)
-      es
+    def filter(tag, time, record)
+      instrument_single(tag, time, record, @metrics)
+      record
     end
   end
 end
