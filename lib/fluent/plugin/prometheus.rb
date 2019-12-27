@@ -1,6 +1,6 @@
 require 'prometheus/client'
 require 'prometheus/client/formats/text'
-require 'fluent/plugin/filter_record_transformer'
+require 'fluent/plugin/prometheus/placeholder_expander'
 
 module Fluent
   module Plugin
@@ -82,14 +82,13 @@ module Fluent
       end
 
       def self.placeholder_expander(log)
-        # Use internal class in order to expand placeholder
-        Fluent::Plugin::RecordTransformerFilter::PlaceholderExpander.new(log: log)
+        Fluent::Plugin::Prometheus::ExpandBuilder.new(log: log)
       end
 
       def configure(conf)
         super
         @placeholder_values = {}
-        @placeholder_expander = Fluent::Plugin::Prometheus.placeholder_expander(log)
+        @placeholder_expander_builder = Fluent::Plugin::Prometheus.placeholder_expander(log)
         @hostname = Socket.gethostname
       end
 
@@ -101,10 +100,10 @@ module Fluent
         }
 
         placeholders = record.merge(@placeholder_values[tag])
-        placeholders = @placeholder_expander.prepare_placeholders(placeholders)
+        expander = @placeholder_expander_builder.build(placeholders)
         metrics.each do |metric|
           begin
-            metric.instrument(record, @placeholder_expander, placeholders)
+            metric.instrument(record, expander)
           rescue => e
             log.warn "prometheus: failed to instrument a metric.", error_class: e.class, error: e, tag: tag, name: metric.name
             router.emit_error_event(tag, time, record, e)
@@ -121,10 +120,10 @@ module Fluent
 
         es.each do |time, record|
           placeholders = record.merge(placeholder_values)
-          placeholders = @placeholder_expander.prepare_placeholders(placeholders)
+          expander = @placeholder_expander_builder.build(placeholders)
           metrics.each do |metric|
             begin
-              metric.instrument(record, @placeholder_expander, placeholders)
+              metric.instrument(record, expander)
             rescue => e
               log.warn "prometheus: failed to instrument a metric.", error_class: e.class, error: e, tag: tag, name: metric.name
               router.emit_error_event(tag, time, record, e)
@@ -154,11 +153,11 @@ module Fluent
           @base_labels = labels.merge(@base_labels)
         end
 
-        def labels(record, expander, placeholders)
+        def labels(record, expander)
           label = {}
           @base_labels.each do |k, v|
             if v.is_a?(String)
-              label[k] = expander.expand(v, placeholders)
+              label[k] = expander.expand(v)
             else
               label[k] = v.call(record)
             end
@@ -195,14 +194,14 @@ module Fluent
           end
         end
 
-        def instrument(record, expander, placeholders)
+        def instrument(record, expander)
           if @key.is_a?(String)
             value = record[@key]
           else
             value = @key.call(record)
           end
           if value
-            @gauge.set(labels(record, expander, placeholders), value)
+            @gauge.set(labels(record, expander), value)
           end
         end
       end
@@ -217,7 +216,7 @@ module Fluent
           end
         end
 
-        def instrument(record, expander, placeholders)
+        def instrument(record, expander)
           # use record value of the key if key is specified, otherwise just increment
           if @key.nil?
             value = 1
@@ -230,7 +229,7 @@ module Fluent
           # ignore if record value is nil
           return if value.nil?
 
-          @counter.increment(labels(record, expander, placeholders), value)
+          @counter.increment(labels(record, expander), value)
         end
       end
 
@@ -248,14 +247,14 @@ module Fluent
           end
         end
 
-        def instrument(record, expander, placeholders)
+        def instrument(record, expander)
           if @key.is_a?(String)
             value = record[@key]
           else
             value = @key.call(record)
           end
           if value
-            @summary.observe(labels(record, expander, placeholders), value)
+            @summary.observe(labels(record, expander), value)
           end
         end
       end
@@ -281,14 +280,14 @@ module Fluent
           end
         end
 
-        def instrument(record, expander, placeholders)
+        def instrument(record, expander)
           if @key.is_a?(String)
             value = record[@key]
           else
             value = @key.call(record)
           end
           if value
-            @histogram.observe(labels(record, expander, placeholders), value)
+            @histogram.observe(labels(record, expander), value)
           end
         end
       end
