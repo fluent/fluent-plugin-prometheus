@@ -3,9 +3,7 @@ BASE_CONFIG = %[
   type prometheus
 ]
 
-
 SIMPLE_CONFIG = BASE_CONFIG + %[
-  type prometheus
   <metric>
     name simple_foo
     type counter
@@ -155,6 +153,7 @@ shared_examples_for 'output configuration' do
 end
 
 shared_examples_for 'instruments record' do
+
   context 'full config' do
     let(:config) { FULL_CONFIG }
     let(:counter) { registry.get(:full_foo) }
