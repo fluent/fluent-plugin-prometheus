@@ -24,7 +24,8 @@ describe Fluent::Plugin::PrometheusOutput do
     }
 
     context 'simple config' do
-      include_context 'simple_config'
+      let(:name) { :simple_foo }
+      let(:config) { SIMPLE_CONFIG }
 
       it 'adds a new counter metric' do
         expect(registry.metrics.map(&:name)).not_to include(name)

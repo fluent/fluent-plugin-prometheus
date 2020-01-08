@@ -111,48 +111,6 @@ COUNTER_WITHOUT_KEY_CONFIG = BASE_CONFIG + %[
   </metric>
 ]
 
-def gen_time_suffix
-  return Time.now.to_f.to_s.gsub('.', '')
-end
-
-shared_context 'simple_config' do
-  let(:orig_name) { 'simple_foo' }
-  let(:config) { SIMPLE_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
-  let(:counter) { registry.get(name) }
-end
-
-shared_context 'full_config' do
-  let(:config) { FULL_CONFIG }
-  let(:counter) { registry.get(:full_foo) }
-  let(:gauge) { registry.get(:full_bar) }
-  let(:summary) { registry.get(:full_baz) }
-  let(:histogram) { registry.get(:full_qux) }
-  let(:summary_with_accessor) { registry.get(:full_accessor1) }
-  let(:counter_with_accessor) { registry.get(:full_accessor2) }
-end
-
-shared_context 'placeholder_config' do
-  let(:orig_name) { 'placeholder_foo' }
-  let(:config) { PLACEHOLDER_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
-  let(:counter) { registry.get(name) }
-end
-
-shared_context 'accessor_config' do
-  let(:orig_name) { 'accessor_foo' }
-  let(:config) { ACCESSOR_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
-  let(:counter) { registry.get(name) }
-end
-
-shared_context 'counter_without_key_config' do
-  let(:orig_name) { 'without_key_foo' }
-  let(:config) { COUNTER_WITHOUT_KEY_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
-  let(:counter) { registry.get(name) }
-end
-
 shared_examples_for 'output configuration' do
   context 'base config' do
     let(:config) { BASE_CONFIG }
@@ -198,7 +156,13 @@ end
 
 shared_examples_for 'instruments record' do
   context 'full config' do
-    include_context 'full_config'
+    let(:config) { FULL_CONFIG }
+    let(:counter) { registry.get(:full_foo) }
+    let(:gauge) { registry.get(:full_bar) }
+    let(:summary) { registry.get(:full_baz) }
+    let(:histogram) { registry.get(:full_qux) }
+    let(:summary_with_accessor) { registry.get(:full_accessor1) }
+    let(:counter_with_accessor) { registry.get(:full_accessor2) }
 
     before :each do
       es
@@ -248,7 +212,9 @@ shared_examples_for 'instruments record' do
   end
 
   context 'placeholder config' do
-    include_context 'placeholder_config'
+    let(:name) { 'placeholder_foo'.to_sym }
+    let(:config) { PLACEHOLDER_CONFIG }
+    let(:counter) { registry.get(name) }
 
     before :each do
       es
@@ -268,7 +234,9 @@ shared_examples_for 'instruments record' do
   end
 
   context 'accessor config' do
-    include_context 'accessor_config'
+    let(:name) { 'accessor_foo'.to_sym }
+    let(:config) { ACCESSOR_CONFIG }
+    let(:counter) { registry.get(name) }
 
     before :each do
       es
@@ -284,7 +252,9 @@ shared_examples_for 'instruments record' do
   end
 
   context 'counter_without config' do
-    include_context 'counter_without_key_config'
+    let(:name) { 'without_key_foo'.to_sym }
+    let(:config) { COUNTER_WITHOUT_KEY_CONFIG }
+    let(:counter) { registry.get(name) }
 
     before :each do
       es
