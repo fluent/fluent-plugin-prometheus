@@ -156,45 +156,43 @@ end
 shared_examples_for 'output configuration' do
   context 'base config' do
     let(:config) { BASE_CONFIG }
-    it 'does not raise error' do
-      expect{driver}.not_to raise_error
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with simple configuration' do
+    let(:config) { SIMPLE_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with full configuration' do
+    let(:config) { FULL_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with placeholder configuration' do
+    let(:config) { PLACEHOLDER_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with accessor configuration' do
+    let(:config) { ACCESSOR_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  describe 'with counter without key configuration' do
+    let(:config) { COUNTER_WITHOUT_KEY_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with unknown type' do
+    let(:config) do
+      BASE_CONFIG + %[
+      <metric>
+        type foo
+      </metric>
+      ]
     end
-  end
-
-  describe 'configure simple configuration' do
-    include_context 'simple_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  describe 'configure full configuration' do
-    include_context 'full_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  describe 'configure placeholder configuration' do
-    include_context 'placeholder_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  describe 'configure accessor configuration' do
-    include_context 'accessor_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  describe 'configure counter without key configuration' do
-    include_context 'counter_without_key_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  context 'unknown type' do
-    let(:config) { BASE_CONFIG + %[
-<metric>
-  type foo
-</metric>
-] }
-    it 'raises ConfigError' do
-      expect{driver}.to raise_error Fluent::ConfigError
-    end
+    it { expect { driver }.to raise_error(Fluent::ConfigError) }
   end
 end
 
