@@ -189,7 +189,7 @@ module Fluent
           end
 
           begin
-            @gauge = registry.gauge(element['name'].to_sym, element['desc'])
+            @gauge = registry.gauge(element['name'].to_sym, element['desc'], labels)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @gauge = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :gauge, element['desc'])
           end
@@ -211,7 +211,7 @@ module Fluent
         def initialize(element, registry, labels)
           super
           begin
-            @counter = registry.counter(element['name'].to_sym, element['desc'])
+            @counter = registry.counter(element['name'].to_sym, element['desc'], labels)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @counter = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :counter, element['desc'])
           end
@@ -242,7 +242,7 @@ module Fluent
           end
 
           begin
-            @summary = registry.summary(element['name'].to_sym, element['desc'])
+            @summary = registry.summary(element['name'].to_sym, element['desc'], labels)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @summary = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :summary, element['desc'])
           end
@@ -272,9 +272,9 @@ module Fluent
               buckets = element['buckets'].split(/,/).map(&:strip).map do |e|
                 e[/\A\d+.\d+\Z/] ? e.to_f : e.to_i
               end
-              @histogram = registry.histogram(element['name'].to_sym, element['desc'], {}, buckets)
+              @histogram = registry.histogram(element['name'].to_sym, element['desc'], labels, buckets)
             else
-              @histogram = registry.histogram(element['name'].to_sym, element['desc'])
+              @histogram = registry.histogram(element['name'].to_sym, element['desc'], labels)
             end
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @histogram = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])

@@ -46,21 +46,33 @@ module Fluent::Plugin
     def start
       super
 
+      labels = labels({})       # any value is ok
+
       @buffer_newest_timekey = @registry.gauge(
         :fluentd_status_buffer_newest_timekey,
-        'Newest timekey in buffer.')
+        'Newest timekey in buffer.',
+        labels
+      )
       @buffer_oldest_timekey = @registry.gauge(
         :fluentd_status_buffer_oldest_timekey,
-        'Oldest timekey in buffer.')
+        'Oldest timekey in buffer.',
+        labels
+      )
       buffer_queue_length = @registry.gauge(
         :fluentd_status_buffer_queue_length,
-        'Current buffer queue length.')
+        'Current buffer queue length.',
+        labels
+      )
       buffer_total_queued_size = @registry.gauge(
         :fluentd_status_buffer_total_bytes,
-        'Current total size of queued buffers.')
+        'Current total size of queued buffers.',
+        labels
+      )
       retry_counts = @registry.gauge(
         :fluentd_status_retry_count,
-        'Current retry counts.')
+        'Current retry counts.',
+        labels
+      )
 
       @monitor_info = {
         'buffer_queue_length' => buffer_queue_length,

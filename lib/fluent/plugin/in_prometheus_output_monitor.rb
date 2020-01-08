@@ -64,61 +64,97 @@ module Fluent::Plugin
     def start
       super
 
+      labels = labels({})       # any value is ok
+
       @metrics = {
         # Buffer metrics
         buffer_total_queued_size: @registry.gauge(
           :fluentd_output_status_buffer_total_bytes,
-          'Current total size of stage and queue buffers.'),
+          'Current total size of stage and queue buffers.',
+          labels
+        ),
         buffer_stage_length: @registry.gauge(
           :fluentd_output_status_buffer_stage_length,
-          'Current length of stage buffers.'),
+          'Current length of stage buffers.',
+          labels
+        ),
         buffer_stage_byte_size: @registry.gauge(
           :fluentd_output_status_buffer_stage_byte_size,
-          'Current total size of stage buffers.'),
+          'Current total size of stage buffers.',
+          labels
+        ),
         buffer_queue_length: @registry.gauge(
           :fluentd_output_status_buffer_queue_length,
-          'Current length of queue buffers.'),
+          'Current length of queue buffers.',
+          labels
+        ),
         buffer_queue_byte_size: @registry.gauge(
           :fluentd_output_status_queue_byte_size,
-          'Current total size of queue buffers.'),
+          'Current total size of queue buffers.',
+          labels
+        ),
         buffer_available_buffer_space_ratios: @registry.gauge(
           :fluentd_output_status_buffer_available_space_ratio,
-          'Ratio of available space in buffer.'),
+          'Ratio of available space in buffer.',
+          labels
+        ),
         buffer_newest_timekey: @registry.gauge(
           :fluentd_output_status_buffer_newest_timekey,
-          'Newest timekey in buffer.'),
+          'Newest timekey in buffer.',
+          labels
+        ),
         buffer_oldest_timekey: @registry.gauge(
           :fluentd_output_status_buffer_oldest_timekey,
-          'Oldest timekey in buffer.'),
+          'Oldest timekey in buffer.',
+          labels
+        ),
 
         # Output metrics
         retry_counts: @registry.gauge(
           :fluentd_output_status_retry_count,
-          'Current retry counts.'),
+          'Current retry counts.',
+          labels
+        ),
         num_errors: @registry.gauge(
           :fluentd_output_status_num_errors,
-          'Current number of errors.'),
+          'Current number of errors.',
+          labels
+        ),
         emit_count: @registry.gauge(
           :fluentd_output_status_emit_count,
-          'Current emit counts.'),
+          'Current emit counts.',
+          labels
+        ),
         emit_records: @registry.gauge(
           :fluentd_output_status_emit_records,
-          'Current emit records.'),
+          'Current emit records.',
+          labels
+        ),
         write_count: @registry.gauge(
           :fluentd_output_status_write_count,
-          'Current write counts.'),
+          'Current write counts.',
+          labels
+        ),
         rollback_count: @registry.gauge(
           :fluentd_output_status_rollback_count,
-          'Current rollback counts.'),
+          'Current rollback counts.',
+          labels
+        ),
         flush_time_count: @registry.gauge(
           :fluentd_output_status_flush_time_count,
-          'Total flush time.'),
+          'Total flush time.',
+          labels
+        ),
         slow_flush_count: @registry.gauge(
           :fluentd_output_status_slow_flush_count,
-          'Current slow flush counts.'),
+          'Current slow flush counts.',
+          labels
+        ),
         retry_wait: @registry.gauge(
           :fluentd_output_status_retry_wait,
-          'Current retry wait'),
+          'Current retry wait',
+          labels
+        ),
       }
       timer_execute(:in_prometheus_output_monitor, @interval, &method(:update_monitor_info))
     end

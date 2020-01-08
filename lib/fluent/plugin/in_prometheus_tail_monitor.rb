@@ -49,13 +49,19 @@ module Fluent::Plugin
     def start
       super
 
+      labels = labels({})       # any value is ok
+
       @metrics = {
         position: @registry.gauge(
           :fluentd_tail_file_position,
-          'Current position of file.'),
+          'Current position of file.',
+          labels
+        ),
         inode: @registry.gauge(
           :fluentd_tail_file_inode,
-          'Current inode of file.'),
+          'Current inode of file.',
+          labels
+        ),
       }
       timer_execute(:in_prometheus_tail_monitor, @interval, &method(:update_monitor_info))
     end
