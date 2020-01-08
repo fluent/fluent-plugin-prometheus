@@ -198,14 +198,12 @@ shared_examples_for 'output configuration' do
   end
 end
 
-emit_count = 0
 shared_examples_for 'instruments record' do
   context 'full config' do
     include_context 'full_config'
 
     before :each do
       es
-      emit_count += 1
     end
 
     it 'adds all metrics' do
@@ -241,9 +239,13 @@ shared_examples_for 'instruments record' do
     end
 
     it 'instruments histogram metric' do
+      driver.run(default_tag: tag) do
+        4.times { driver.feed(event_time, message) }
+      end
+
       expect(histogram.type).to eq(:histogram)
       expect(histogram.get({test_key: 'test_value', key: 'foo4'})).to be_kind_of(Hash)
-      expect(histogram.get({test_key: 'test_value', key: 'foo4'})[10]).to eq(emit_count)
+      expect(histogram.get({test_key: 'test_value', key: 'foo4'})[10]).to eq(5)
     end
   end
 
