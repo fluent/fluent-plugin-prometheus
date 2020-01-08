@@ -6,7 +6,11 @@ require_relative 'shared'
 describe Fluent::Plugin::PrometheusOutput do
   let(:tag) { 'prometheus.test' }
   let(:driver) { Fluent::Test::Driver::Output.new(Fluent::Plugin::PrometheusOutput).configure(config) }
-  let(:registry) { ::Prometheus::Client.registry }
+  let(:registry) { ::Prometheus::Client::Registry.new }
+
+  before do
+    allow(Prometheus::Client).to receive(:registry).and_return(registry)
+  end
 
   describe '#configure' do
     it_behaves_like 'output configuration'
