@@ -23,7 +23,6 @@ describe Fluent::Plugin::PrometheusMonitorInput do
 ]
 
   let(:config) { MONITOR_CONFIG }
-  let(:port) { 24231 }
   let(:driver) { Fluent::Test::Driver::Input.new(Fluent::Plugin::PrometheusMonitorInput).configure(config) }
 
   describe '#configure' do
