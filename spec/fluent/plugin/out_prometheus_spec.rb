@@ -20,13 +20,21 @@ describe Fluent::Plugin::PrometheusOutput do
     let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
 
     context 'simple config' do
-      let(:name) { :simple_foo }
-      let(:config) { SIMPLE_CONFIG }
+      let(:config) {
+        BASE_CONFIG + %(
+          <metric>
+            name simple
+            type counter
+            desc Something foo.
+            key foo
+          </metric>
+        )
+      }
 
       it 'adds a new counter metric' do
-        expect(registry.metrics.map(&:name)).not_to include(name)
+        expect(registry.metrics.map(&:name)).not_to eq([:simple])
         driver.run(default_tag: tag) { driver.feed(event_time, message) }
-        expect(registry.metrics.map(&:name)).to include(name)
+        expect(registry.metrics.map(&:name)).to eq([:simple])
       end
     end
 

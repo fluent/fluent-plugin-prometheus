@@ -131,7 +131,7 @@ shared_examples_for 'output configuration' do
   end
 
   context 'with accessor configuration' do
-    let(:config) { ACCESSOR_CONFIG }
+    let(:config) {  ACCESSOR_CONFIG }
     it { expect { driver }.not_to raise_error }
   end
 
@@ -167,11 +167,7 @@ shared_examples_for 'instruments record' do
     let(:counter_with_accessor) { registry.get(:full_accessor2) }
 
     it 'adds all metrics' do
-      expect(registry.metrics.map(&:name)).to include(:full_foo)
-      expect(registry.metrics.map(&:name)).to include(:full_bar)
-      expect(registry.metrics.map(&:name)).to include(:full_baz)
-      expect(registry.metrics.map(&:name)).to include(:full_accessor1)
-      expect(registry.metrics.map(&:name)).to include(:full_accessor2)
+      expect(registry.metrics.map(&:name)).to eq(%i[full_foo full_bar full_baz full_qux full_accessor1 full_accessor2])
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       expect(gauge).to be_kind_of(::Prometheus::Client::Metric)
       expect(summary).to be_kind_of(::Prometheus::Client::Metric)
@@ -210,12 +206,11 @@ shared_examples_for 'instruments record' do
   end
 
   context 'placeholder config' do
-    let(:name) { 'placeholder_foo'.to_sym }
     let(:config) { PLACEHOLDER_CONFIG }
-    let(:counter) { registry.get(name) }
+    let(:counter) { registry.get(:placeholder_foo) }
 
     it 'expands placeholders with record values' do
-      expect(registry.metrics.map(&:name)).to include(name)
+      expect(registry.metrics.map(&:name)).to eq([:placeholder_foo])
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       key, _ = counter.values.find {|k,v| v ==  100 }
       expect(key).to be_kind_of(Hash)
@@ -228,12 +223,11 @@ shared_examples_for 'instruments record' do
   end
 
   context 'accessor config' do
-    let(:name) { 'accessor_foo'.to_sym }
     let(:config) { ACCESSOR_CONFIG }
-    let(:counter) { registry.get(name) }
+    let(:counter) { registry.get(:accessor_foo) }
 
     it 'expands accessor with record values' do
-      expect(registry.metrics.map(&:name)).to include(name)
+      expect(registry.metrics.map(&:name)).to eq([:accessor_foo])
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       key, _ = counter.values.find {|k,v| v ==  100 }
       expect(key).to be_kind_of(Hash)
@@ -242,12 +236,11 @@ shared_examples_for 'instruments record' do
   end
 
   context 'counter_without config' do
-    let(:name) { 'without_key_foo'.to_sym }
     let(:config) { COUNTER_WITHOUT_KEY_CONFIG }
-    let(:counter) { registry.get(name) }
+    let(:counter) { registry.get(:without_key_foo) }
 
     it 'just increments by 1' do
-      expect(registry.metrics.map(&:name)).to include(name)
+      expect(registry.metrics.map(&:name)).to eq([:without_key_foo])
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       _, value = counter.values.find {|k,v| k == {} }
       expect(value).to eq(1)
