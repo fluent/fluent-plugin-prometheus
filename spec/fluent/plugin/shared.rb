@@ -153,6 +153,9 @@ shared_examples_for 'output configuration' do
 end
 
 shared_examples_for 'instruments record' do
+  before do
+    driver.run(default_tag: tag) { driver.feed(event_time, message) }
+  end
 
   context 'full config' do
     let(:config) { FULL_CONFIG }
@@ -162,10 +165,6 @@ shared_examples_for 'instruments record' do
     let(:histogram) { registry.get(:full_qux) }
     let(:summary_with_accessor) { registry.get(:full_accessor1) }
     let(:counter_with_accessor) { registry.get(:full_accessor2) }
-
-    before :each do
-      es
-    end
 
     it 'adds all metrics' do
       expect(registry.metrics.map(&:name)).to include(:full_foo)
@@ -215,10 +214,6 @@ shared_examples_for 'instruments record' do
     let(:config) { PLACEHOLDER_CONFIG }
     let(:counter) { registry.get(name) }
 
-    before :each do
-      es
-    end
-
     it 'expands placeholders with record values' do
       expect(registry.metrics.map(&:name)).to include(name)
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
@@ -237,10 +232,6 @@ shared_examples_for 'instruments record' do
     let(:config) { ACCESSOR_CONFIG }
     let(:counter) { registry.get(name) }
 
-    before :each do
-      es
-    end
-
     it 'expands accessor with record values' do
       expect(registry.metrics.map(&:name)).to include(name)
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
@@ -254,10 +245,6 @@ shared_examples_for 'instruments record' do
     let(:name) { 'without_key_foo'.to_sym }
     let(:config) { COUNTER_WITHOUT_KEY_CONFIG }
     let(:counter) { registry.get(name) }
-
-    before :each do
-      es
-    end
 
     it 'just increments by 1' do
       expect(registry.metrics.map(&:name)).to include(name)

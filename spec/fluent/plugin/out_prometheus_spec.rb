@@ -18,10 +18,6 @@ describe Fluent::Plugin::PrometheusOutput do
 
   describe '#run' do
     let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
-    let(:es) {
-      driver.run(default_tag: tag) { driver.feed(event_time, message) }
-      driver.events
-    }
 
     context 'simple config' do
       let(:name) { :simple_foo }
@@ -29,7 +25,7 @@ describe Fluent::Plugin::PrometheusOutput do
 
       it 'adds a new counter metric' do
         expect(registry.metrics.map(&:name)).not_to include(name)
-        es
+        driver.run(default_tag: tag) { driver.feed(event_time, message) }
         expect(registry.metrics.map(&:name)).to include(name)
       end
     end
