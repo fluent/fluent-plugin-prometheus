@@ -222,19 +222,19 @@ shared_examples_for 'instruments record' do
 
     it 'instruments counter metric' do
       expect(counter.type).to eq(:counter)
-      expect(counter.get({test_key: 'test_value', key: 'foo1'})).to be_kind_of(Numeric)
-      expect(counter_with_accessor.get({test_key: 'test_value', key: 'foo6'})).to be_kind_of(Numeric)
+      expect(counter.get(labels: {test_key: 'test_value', key: 'foo1'})).to be_kind_of(Numeric)
+      expect(counter_with_accessor.get(labels: {test_key: 'test_value', key: 'foo6'})).to be_kind_of(Numeric)
     end
 
     it 'instruments gauge metric' do
       expect(gauge.type).to eq(:gauge)
-      expect(gauge.get({test_key: 'test_value', key: 'foo2'})).to eq(100)
+      expect(gauge.get(labels: {test_key: 'test_value', key: 'foo2'})).to eq(100)
     end
 
     it 'instruments summary metric' do
       expect(summary.type).to eq(:summary)
-      expect(summary.get({test_key: 'test_value', key: 'foo3'})).to be_kind_of(Hash)
-      expect(summary.get({test_key: 'test_value', key: 'foo3'})[0.99]).to eq(100)
+      expect(summary.get(labels: {test_key: 'test_value', key: 'foo3'})).to be_kind_of(Hash)
+      expect(summary.get(labels: {test_key: 'test_value', key: 'foo3'})[0.99]).to eq(100)
       expect(summary_with_accessor.get({test_key: 'test_value', key: 'foo5'})[0.99]).to eq(100)
     end
 
@@ -244,8 +244,8 @@ shared_examples_for 'instruments record' do
       end
 
       expect(histogram.type).to eq(:histogram)
-      expect(histogram.get({test_key: 'test_value', key: 'foo4'})).to be_kind_of(Hash)
-      expect(histogram.get({test_key: 'test_value', key: 'foo4'})[10]).to eq(5)
+      expect(histogram.get(labels: {test_key: 'test_value', key: 'foo4'})).to be_kind_of(Hash)
+      expect(histogram.get(labels: {test_key: 'test_value', key: 'foo4'})[10]).to eq(5)
     end
   end
 

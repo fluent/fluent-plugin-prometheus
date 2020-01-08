@@ -49,19 +49,10 @@ module Fluent::Plugin
     def start
       super
 
-      labels = labels({})       # any value is ok
-
+      labels = labels({}).keys
       @metrics = {
-        position: @registry.gauge(
-          :fluentd_tail_file_position,
-          'Current position of file.',
-          labels
-        ),
-        inode: @registry.gauge(
-          :fluentd_tail_file_inode,
-          'Current inode of file.',
-          labels
-        ),
+        position: @registry.gauge(:fluentd_tail_file_position, docstring: 'Current position of file.', labels: labels),
+        inode: @registry.gauge(:fluentd_tail_file_inode, docstring: 'Current inode of file.', labels: labels),
       }
       timer_execute(:in_prometheus_tail_monitor, @interval, &method(:update_monitor_info))
     end
@@ -84,8 +75,8 @@ module Fluent::Plugin
           # Very fragile implementation
           pe = watcher.instance_variable_get(:@pe)
           label = labels(info, watcher.path)
-          @metrics[:inode].set(label, pe.read_inode)
-          @metrics[:position].set(label, pe.read_pos)
+          @metrics[:inode].set(pe.read_inode, labels: label)
+          @metrics[:position].set(pe.read_pos, labels: label)
         end
       end
     end

@@ -46,33 +46,12 @@ module Fluent::Plugin
     def start
       super
 
-      labels = labels({})       # any value is ok
-
-      @buffer_newest_timekey = @registry.gauge(
-        :fluentd_status_buffer_newest_timekey,
-        'Newest timekey in buffer.',
-        labels
-      )
-      @buffer_oldest_timekey = @registry.gauge(
-        :fluentd_status_buffer_oldest_timekey,
-        'Oldest timekey in buffer.',
-        labels
-      )
-      buffer_queue_length = @registry.gauge(
-        :fluentd_status_buffer_queue_length,
-        'Current buffer queue length.',
-        labels
-      )
-      buffer_total_queued_size = @registry.gauge(
-        :fluentd_status_buffer_total_bytes,
-        'Current total size of queued buffers.',
-        labels
-      )
-      retry_counts = @registry.gauge(
-        :fluentd_status_retry_count,
-        'Current retry counts.',
-        labels
-      )
+      labels = labels({}).keys
+      @buffer_newest_timekey = @registry.gauge(:fluentd_status_buffer_newest_timekey, docstring: 'Newest timekey in buffer.', labels: labels)
+      @buffer_oldest_timekey = @registry.gauge(:fluentd_status_buffer_oldest_timekey, docstring: 'Oldest timekey in buffer.', labels: labels)
+      buffer_queue_length = @registry.gauge(:fluentd_status_buffer_queue_length, docstring: 'Current buffer queue length.', labels: labels)
+      buffer_total_queued_size = @registry.gauge(:fluentd_status_buffer_total_bytes, docstring: 'Current total size of queued buffers.', labels: labels)
+      retry_counts = @registry.gauge(:fluentd_status_retry_count, docstring: 'Current retry counts.', labels: labels)
 
       @monitor_info = {
         'buffer_queue_length' => buffer_queue_length,
@@ -88,14 +67,14 @@ module Fluent::Plugin
 
         @monitor_info.each do |name, metric|
           if info[name]
-            metric.set(label, info[name])
+            metric.set(info[name], labels: label)
           end
         end
 
         timekeys = info["buffer_timekeys"]
         if timekeys && !timekeys.empty?
-          @buffer_newest_timekey.set(label, timekeys.max)
-          @buffer_oldest_timekey.set(label, timekeys.min)
+          @buffer_newest_timekey.set(timekeys.max, labels: label)
+          @buffer_oldest_timekey.set(timekeys.min, labels: label)
         end
       end
     end
