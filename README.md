@@ -244,6 +244,25 @@ You can access nested keys in records via dot or bracket notation (https://docs.
 
 See Supported Metric Type and Labels for more configuration parameters.
 
+### prometheus_pushgateway output plugin
+
+You can configure this plugin to push metrics to [Pushgateway](https://github.com/prometheus/pushgateway) collected by other Prometheus plugins.
+With following configuration, you can push data.
+
+```
+<match>
+  @type prometheus_pushgateway
+  job_name fluentd_prometheus_pushgateway
+</match>
+```
+
+More configuration parameters:
+
+- `gateway`: binding interface (default: 'http://localhost:9091')
+- `job_name`: job name. this value must be a unique (required)
+- `instance`: instance name (default: nil)
+- `push_interval`: the interval of pushing data to pushgateway
+
 ## Supported Metric Types
 
 For details of each metric type, see [Prometheus documentation](http://prometheus.io/docs/concepts/metric_types/). Also see [metric name guide](http://prometheus.io/docs/practices/naming/).
