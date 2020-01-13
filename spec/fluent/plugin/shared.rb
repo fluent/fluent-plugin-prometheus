@@ -3,9 +3,7 @@ BASE_CONFIG = %[
   type prometheus
 ]
 
-
 SIMPLE_CONFIG = BASE_CONFIG + %[
-  type prometheus
   <metric>
     name simple_foo
     type counter
@@ -111,109 +109,65 @@ COUNTER_WITHOUT_KEY_CONFIG = BASE_CONFIG + %[
   </metric>
 ]
 
-def gen_time_suffix
-  return Time.now.to_f.to_s.gsub('.', '')
-end
-
-shared_context 'simple_config' do
-  let(:orig_name) { 'simple_foo' }
-  let(:config) { SIMPLE_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
-  let(:counter) { registry.get(name) }
-end
-
-shared_context 'full_config' do
-  let(:config) { FULL_CONFIG }
-  let(:counter) { registry.get(:full_foo) }
-  let(:gauge) { registry.get(:full_bar) }
-  let(:summary) { registry.get(:full_baz) }
-  let(:histogram) { registry.get(:full_qux) }
-  let(:summary_with_accessor) { registry.get(:full_accessor1) }
-  let(:counter_with_accessor) { registry.get(:full_accessor2) }
-end
-
-shared_context 'placeholder_config' do
-  let(:orig_name) { 'placeholder_foo' }
-  let(:config) { PLACEHOLDER_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
-  let(:counter) { registry.get(name) }
-end
-
-shared_context 'accessor_config' do
-  let(:orig_name) { 'accessor_foo' }
-  let(:config) { ACCESSOR_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
-  let(:counter) { registry.get(name) }
-end
-
-shared_context 'counter_without_key_config' do
-  let(:orig_name) { 'without_key_foo' }
-  let(:config) { COUNTER_WITHOUT_KEY_CONFIG.gsub(orig_name, name.to_s) }
-  let(:name) { "#{orig_name}_#{gen_time_suffix}".to_sym }
-  let(:counter) { registry.get(name) }
-end
-
 shared_examples_for 'output configuration' do
   context 'base config' do
     let(:config) { BASE_CONFIG }
-    it 'does not raise error' do
-      expect{driver}.not_to raise_error
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with simple configuration' do
+    let(:config) { SIMPLE_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with full configuration' do
+    let(:config) { FULL_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with placeholder configuration' do
+    let(:config) { PLACEHOLDER_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with accessor configuration' do
+    let(:config) {  ACCESSOR_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  describe 'with counter without key configuration' do
+    let(:config) { COUNTER_WITHOUT_KEY_CONFIG }
+    it { expect { driver }.not_to raise_error }
+  end
+
+  context 'with unknown type' do
+    let(:config) do
+      BASE_CONFIG + %[
+      <metric>
+        type foo
+      </metric>
+      ]
     end
-  end
-
-  describe 'configure simple configuration' do
-    include_context 'simple_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  describe 'configure full configuration' do
-    include_context 'full_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  describe 'configure placeholder configuration' do
-    include_context 'placeholder_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  describe 'configure accessor configuration' do
-    include_context 'accessor_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  describe 'configure counter without key configuration' do
-    include_context 'counter_without_key_config'
-    it { expect{driver}.not_to raise_error }
-  end
-
-  context 'unknown type' do
-    let(:config) { BASE_CONFIG + %[
-<metric>
-  type foo
-</metric>
-] }
-    it 'raises ConfigError' do
-      expect{driver}.to raise_error Fluent::ConfigError
-    end
+    it { expect { driver }.to raise_error(Fluent::ConfigError) }
   end
 end
 
-emit_count = 0
 shared_examples_for 'instruments record' do
-  context 'full config' do
-    include_context 'full_config'
+  before do
+    driver.run(default_tag: tag) { driver.feed(event_time, message) }
+  end
 
-    before :each do
-      es
-      emit_count += 1
-    end
+  context 'full config' do
+    let(:config) { FULL_CONFIG }
+    let(:counter) { registry.get(:full_foo) }
+    let(:gauge) { registry.get(:full_bar) }
+    let(:summary) { registry.get(:full_baz) }
+    let(:histogram) { registry.get(:full_qux) }
+    let(:summary_with_accessor) { registry.get(:full_accessor1) }
+    let(:counter_with_accessor) { registry.get(:full_accessor2) }
 
     it 'adds all metrics' do
-      expect(registry.metrics.map(&:name)).to include(:full_foo)
-      expect(registry.metrics.map(&:name)).to include(:full_bar)
-      expect(registry.metrics.map(&:name)).to include(:full_baz)
-      expect(registry.metrics.map(&:name)).to include(:full_accessor1)
-      expect(registry.metrics.map(&:name)).to include(:full_accessor2)
+      expect(registry.metrics.map(&:name)).to eq(%i[full_foo full_bar full_baz full_qux full_accessor1 full_accessor2])
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       expect(gauge).to be_kind_of(::Prometheus::Client::Metric)
       expect(summary).to be_kind_of(::Prometheus::Client::Metric)
@@ -241,21 +195,22 @@ shared_examples_for 'instruments record' do
     end
 
     it 'instruments histogram metric' do
+      driver.run(default_tag: tag) do
+        4.times { driver.feed(event_time, message) }
+      end
+
       expect(histogram.type).to eq(:histogram)
       expect(histogram.get({test_key: 'test_value', key: 'foo4'})).to be_kind_of(Hash)
-      expect(histogram.get({test_key: 'test_value', key: 'foo4'})[10]).to eq(emit_count)
+      expect(histogram.get({test_key: 'test_value', key: 'foo4'})[10]).to eq(5) # 4 + `es` in before
     end
   end
 
   context 'placeholder config' do
-    include_context 'placeholder_config'
-
-    before :each do
-      es
-    end
+    let(:config) { PLACEHOLDER_CONFIG }
+    let(:counter) { registry.get(:placeholder_foo) }
 
     it 'expands placeholders with record values' do
-      expect(registry.metrics.map(&:name)).to include(name)
+      expect(registry.metrics.map(&:name)).to eq([:placeholder_foo])
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       key, _ = counter.values.find {|k,v| v ==  100 }
       expect(key).to be_kind_of(Hash)
@@ -268,14 +223,11 @@ shared_examples_for 'instruments record' do
   end
 
   context 'accessor config' do
-    include_context 'accessor_config'
-
-    before :each do
-      es
-    end
+    let(:config) { ACCESSOR_CONFIG }
+    let(:counter) { registry.get(:accessor_foo) }
 
     it 'expands accessor with record values' do
-      expect(registry.metrics.map(&:name)).to include(name)
+      expect(registry.metrics.map(&:name)).to eq([:accessor_foo])
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       key, _ = counter.values.find {|k,v| v ==  100 }
       expect(key).to be_kind_of(Hash)
@@ -284,14 +236,11 @@ shared_examples_for 'instruments record' do
   end
 
   context 'counter_without config' do
-    include_context 'counter_without_key_config'
-
-    before :each do
-      es
-    end
+    let(:config) { COUNTER_WITHOUT_KEY_CONFIG }
+    let(:counter) { registry.get(:without_key_foo) }
 
     it 'just increments by 1' do
-      expect(registry.metrics.map(&:name)).to include(name)
+      expect(registry.metrics.map(&:name)).to eq([:without_key_foo])
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       _, value = counter.values.find {|k,v| k == {} }
       expect(value).to eq(1)

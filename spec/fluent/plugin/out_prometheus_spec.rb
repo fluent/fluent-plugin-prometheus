@@ -6,7 +6,11 @@ require_relative 'shared'
 describe Fluent::Plugin::PrometheusOutput do
   let(:tag) { 'prometheus.test' }
   let(:driver) { Fluent::Test::Driver::Output.new(Fluent::Plugin::PrometheusOutput).configure(config) }
-  let(:registry) { ::Prometheus::Client.registry }
+  let(:registry) { ::Prometheus::Client::Registry.new }
+
+  before do
+    allow(Prometheus::Client).to receive(:registry).and_return(registry)
+  end
 
   describe '#configure' do
     it_behaves_like 'output configuration'
@@ -14,18 +18,23 @@ describe Fluent::Plugin::PrometheusOutput do
 
   describe '#run' do
     let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
-    let(:es) {
-      driver.run(default_tag: tag) { driver.feed(event_time, message) }
-      driver.events
-    }
 
     context 'simple config' do
-      include_context 'simple_config'
+      let(:config) {
+        BASE_CONFIG + %(
+          <metric>
+            name simple
+            type counter
+            desc Something foo.
+            key foo
+          </metric>
+        )
+      }
 
       it 'adds a new counter metric' do
-        expect(registry.metrics.map(&:name)).not_to include(name)
-        es
-        expect(registry.metrics.map(&:name)).to include(name)
+        expect(registry.metrics.map(&:name)).not_to eq([:simple])
+        driver.run(default_tag: tag) { driver.feed(event_time, message) }
+        expect(registry.metrics.map(&:name)).to eq([:simple])
       end
     end
 
