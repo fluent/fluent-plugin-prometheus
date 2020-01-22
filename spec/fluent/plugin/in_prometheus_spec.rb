@@ -47,6 +47,78 @@ describe Fluent::Plugin::PrometheusInput do
     end
   end
 
+  describe '#start' do
+    context 'when extra_conf is used' do
+      let(:config) do
+        %[
+          type prometheus
+           bind https://127.0.0.1
+           <ssl>
+             enable true
+             extra_conf { "SSLCertName": "test" }
+           </ssl>
+         ]
+      end
+
+      it 'raises ConfigError' do
+        expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /use transport section/)
+      end
+    end
+
+    context 'old parameters are given' do
+      let(:config) do
+        %[
+          type prometheus
+           bind https://127.0.0.1
+           <ssl>
+             enable true
+             certificate_path path
+             private_key_path path1
+           </ssl>
+        ]
+      end
+
+      it 'conver them into new transport section' do
+        expect(driver.instance).to receive(:http_server_create_http_server).with(
+                                     :in_prometheus_server,
+                                     addr: anything,
+                                     logger: anything,
+                                     port: anything,
+                                     proto: :tls,
+                                     tls_opts: { 'cert_path' => 'path', 'private_key_path' => 'path1' }
+                                   ).once
+
+        driver.run(timeout: 1)
+      end
+
+      context 'old parameter given' do
+        let(:config) do
+          %[
+          type prometheus
+           bind https://127.0.0.1
+           <ssl>
+             enable true
+             ca_path path
+           </ssl>
+          ]
+        end
+
+        it 'conver them into new transport section' do
+          expect(driver.instance).to receive(:http_server_create_http_server).with(
+                                       :in_prometheus_server,
+                                       addr: anything,
+                                       logger: anything,
+                                       port: anything,
+                                       proto: :tls,
+                                       tls_opts: { 'ca_path' => 'path', 'insecure' => true }
+                                     ).once
+
+          driver.run(timeout: 1)
+        end
+      end
+    end
+  end
+
   describe '#run' do
     context '/metrics' do
       let(:config) { LOCAL_CONFIG }
