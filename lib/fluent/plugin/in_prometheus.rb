@@ -17,19 +17,19 @@ module Fluent::Plugin
 
     desc 'Enable ssl configuration for the server'
     config_section :ssl, required: false, multi: false do
-      config_param :enable, :bool, default: false
+      config_param :enable, :bool, default: false, deprecated: 'Use <transport tls> section'
 
       desc 'Path to the ssl certificate in PEM format.  Read from file and added to conf as "SSLCertificate"'
-      config_param :certificate_path, :string, default: nil
+      config_param :certificate_path, :string, default: nil, deprecated: 'Use cert_path in <transport tls> section'
 
       desc 'Path to the ssl private key in PEM format.  Read from file and added to conf as "SSLPrivateKey"'
-      config_param :private_key_path, :string, default: nil
+      config_param :private_key_path, :string, default: nil, deprecated: 'Use private_key_path in <transport tls> section'
 
       desc 'Path to CA in PEM format.  Read from file and added to conf as "SSLCACertificateFile"'
-      config_param :ca_path, :string, default: nil
+      config_param :ca_path, :string, default: nil, deprecated: 'Use ca_path in <transport tls> section'
 
       desc 'Additional ssl conf for the server.  Ref: https://github.com/ruby/webrick/blob/master/lib/webrick/ssl.rb'
-      config_param :extra_conf, :hash, default: {:SSLCertName => [['CN','nobody'],['DC','example']]}, symbolize_keys: true
+      config_param :extra_conf, :hash, default: {:SSLCertName => [['CN','nobody'],['DC','example']]}, symbolize_keys: true, deprecated: 'See http helper config'
     end
 
     def initialize
