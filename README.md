@@ -369,7 +369,13 @@ Reserved placeholders are:
 - `${worker_id}`: fluent worker id
 - `${tag}`: tag name
   - only available in Prometheus output/filter plugin
-
+- `${tag_parts[N]}` refers to the Nth part of the tag.
+  - only available in Prometheus output/filter plugin
+- `${tag_prefix[N]}` refers to the [0..N] part of the tag.
+  - only available in Prometheus output/filter plugin
+- `${tag_suffix[N]}` refers to the [`tagsize`-1-N..] part of the tag.
+  - where `tagsize` is the size of tag which is splitted with `.` (when tag is `1.2.3`, then `tagsize` is 3)
+  - only available in Prometheus output/filter plugin
 
 ### top-level labels and labels inside metric
 
