@@ -29,7 +29,7 @@ module Fluent::Plugin
       super
       hostname = Socket.gethostname
       expander_builder = Fluent::Plugin::Prometheus.placeholder_expander(log)
-      expander = expander_builder.prepare_placeholders({ 'hostname' => hostname, 'worker_id' => fluentd_worker_id })
+      expander = expander_builder.build({ 'hostname' => hostname, 'worker_id' => fluentd_worker_id })
       @base_labels = parse_labels_elements(conf)
       @base_labels.each do |key, value|
         unless value.is_a?(String)
