@@ -3,6 +3,7 @@ require 'fluent/plugin/prometheus'
 require 'fluent/plugin/prometheus_metrics'
 require 'net/http'
 require 'webrick'
+require 'openssl'
 
 module Fluent::Plugin
   class PrometheusInput < Fluent::Plugin::Input
@@ -51,7 +52,6 @@ module Fluent::Plugin
                 end
       @num_workers = sysconf && sysconf.workers ? sysconf.workers : 1
       @secure = @transport_config.protocol == :tls || (@ssl && @ssl['enable'])
-      require 'openssl' if @secure
 
       @base_port = @port
       @port += fluentd_worker_id
