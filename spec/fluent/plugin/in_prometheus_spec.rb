@@ -51,7 +51,7 @@ describe Fluent::Plugin::PrometheusInput do
     context 'when extra_conf is used' do
       let(:config) do
         %[
-          type prometheus
+           @type prometheus
            bind https://127.0.0.1
            <ssl>
              enable true
@@ -68,7 +68,7 @@ describe Fluent::Plugin::PrometheusInput do
     context 'old parameters are given' do
       let(:config) do
         %[
-          type prometheus
+          @type prometheus
            bind https://127.0.0.1
            <ssl>
              enable true
@@ -94,12 +94,12 @@ describe Fluent::Plugin::PrometheusInput do
       context 'old parameter given' do
         let(:config) do
           %[
-          type prometheus
            bind https://127.0.0.1
            <ssl>
              enable true
              ca_path path
            </ssl>
+            @type prometheus
           ]
         end
 
@@ -120,12 +120,12 @@ describe Fluent::Plugin::PrometheusInput do
       context 'when only private_key_path is geven' do
         let(:config) do
           %[
-          type prometheus
            bind https://127.0.0.1
            <ssl>
              enable true
              private_key_path path
            </ssl>
+            @type prometheus
          ]
         end
 
