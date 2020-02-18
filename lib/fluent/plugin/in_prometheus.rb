@@ -72,7 +72,7 @@ module Fluent::Plugin
                   ssl_config = {}
 
                   if (@ssl['certificate_path'] && @ssl['private_key_path'].nil?) || (@ssl['certificate_path'].nil? && @ssl['private_key_path'])
-                    raise Fluent::ConfigError.new('certificate_path and private_key_path most both be defined')
+                    raise Fluent::ConfigError.new('both certificate_path and private_key_path must be defined')
                   end
 
                   if @ssl['certificate_path']

@@ -116,6 +116,23 @@ describe Fluent::Plugin::PrometheusInput do
           driver.run(timeout: 1)
         end
       end
+
+      context 'when only private_key_path is geven' do
+        let(:config) do
+          %[
+          type prometheus
+           bind https://127.0.0.1
+           <ssl>
+             enable true
+             private_key_path path
+           </ssl>
+         ]
+        end
+
+        it 'raises ConfigError' do
+          expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, 'both certificate_path and private_key_path must be defined')
+        end
+      end
     end
   end
 
