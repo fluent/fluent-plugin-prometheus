@@ -48,11 +48,33 @@ describe Fluent::Plugin::PrometheusInput do
   end
 
   describe '#start' do
+    context 'transport section' do
+      let(:config) do
+        %[
+           @type prometheus
+           bind 127.0.0.1
+           <transport tls>
+             insecure true
+           </transport>
+         ]
+      end
+
+      it 'returns 200' do
+        driver.run(timeout: 1) do
+          Net::HTTP.start('127.0.0.1', port, verify_mode: OpenSSL::SSL::VERIFY_NONE, use_ssl: true) do |http|
+            req = Net::HTTP::Get.new('/metrics')
+            res = http.request(req)
+            expect(res.code).to eq('200')
+          end
+        end
+      end
+    end
+
     context 'when extra_conf is used' do
       let(:config) do
         %[
            @type prometheus
-           bind https://127.0.0.1
+           bind 127.0.0.1
            <ssl>
              enable true
              extra_conf { "SSLCertName": "test" }
