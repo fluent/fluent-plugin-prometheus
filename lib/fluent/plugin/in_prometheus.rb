@@ -126,7 +126,7 @@ module Fluent::Plugin
     end
 
     def send_request_to_each_worker
-      bind == '0.0.0.0' ? '127.0.0.1' : @bind
+      bind = (@bind == '0.0.0.0') ? '127.0.0.1' : @bind
       req = Net::HTTP::Get.new(@metrics_path)
       [*(@base_port...(@base_port + @num_workers))].each do |worker_port|
         do_request(host: bind, port: worker_port, secure: @secure) do |http|
