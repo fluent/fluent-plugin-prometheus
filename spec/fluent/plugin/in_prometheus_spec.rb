@@ -92,7 +92,7 @@ describe Fluent::Plugin::PrometheusInput do
         let(:config) do
           %[
             @type prometheus
-             bind https://127.0.0.1
+             bind 127.0.0.1
              <ssl>
                enable true
                certificate_path path
@@ -118,7 +118,7 @@ describe Fluent::Plugin::PrometheusInput do
           let(:config) do
             %[
               @type prometheus
-              bind https://127.0.0.1
+              bind 127.0.0.1
               <ssl>
                 enable true
                 ca_path path
@@ -144,7 +144,7 @@ describe Fluent::Plugin::PrometheusInput do
           let(:config) do
             %[
               @type prometheus
-              bind https://127.0.0.1
+              bind 127.0.0.1
               <ssl>
                 enable true
                 private_key_path path
