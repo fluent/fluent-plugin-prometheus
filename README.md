@@ -71,7 +71,7 @@ This plugin collects internal metrics in Fluentd. The metrics are similar to/par
 #### Exposed metrics
 
 - `fluentd_status_buffer_queue_length`
-- `fluentd_status_buffer_total_queued_size`
+- `fluentd_status_buffer_total_bytes`
 - `fluentd_status_retry_count`
 - `fluentd_status_buffer_newest_timekey` from fluentd v1.4.2
 - `fluentd_status_buffer_oldest_timekey` from fluentd v1.4.2
