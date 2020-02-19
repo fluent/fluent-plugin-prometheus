@@ -6,11 +6,11 @@ require 'net/http'
 
 describe Fluent::Plugin::PrometheusInput do
   CONFIG = %[
-  type prometheus
+  @type prometheus
 ]
 
   LOCAL_CONFIG = %[
-  type prometheus
+  @type prometheus
   bind 127.0.0.1
 ]
 

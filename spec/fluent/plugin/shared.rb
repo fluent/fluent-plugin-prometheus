@@ -1,6 +1,6 @@
 
 BASE_CONFIG = %[
-  type prometheus
+  @type prometheus
 ]
 
 SIMPLE_CONFIG = BASE_CONFIG + %[
