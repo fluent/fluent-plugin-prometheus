@@ -32,12 +32,6 @@ module Fluent::Plugin
       config_param :extra_conf, :hash, default: {:SSLCertName => [['CN','nobody'],['DC','example']]}, symbolize_keys: true
     end
 
-    attr_reader :registry
-
-    attr_reader :num_workers
-    attr_reader :base_port
-    attr_reader :metrics_path
-
     def initialize
       super
       @registry = ::Prometheus::Client.registry
