@@ -47,6 +47,130 @@ describe Fluent::Plugin::PrometheusInput do
     end
   end
 
+  describe '#start' do
+    context 'with transport section' do
+      let(:config) do
+        %[
+           @type prometheus
+           bind 127.0.0.1
+           <transport tls>
+             insecure true
+           </transport>
+         ]
+      end
+
+      it 'returns 200' do
+        driver.run(timeout: 1) do
+          Net::HTTP.start('127.0.0.1', port, verify_mode: OpenSSL::SSL::VERIFY_NONE, use_ssl: true) do |http|
+            req = Net::HTTP::Get.new('/metrics')
+            res = http.request(req)
+            expect(res.code).to eq('200')
+          end
+        end
+      end
+    end
+
+    context 'old parameters are given' do
+      context 'when extra_conf is used' do
+        let(:config) do
+          %[
+            @type prometheus
+            bind 127.0.0.1
+            <ssl>
+              enable true
+              extra_conf { "SSLCertName": [["CN", "nobody"], ["DC", "example"]] }
+            </ssl>
+         ]
+        end
+
+        it 'uses webrick' do
+          expect(driver.instance).to receive(:start_webrick).once
+          driver.run(timeout: 1)
+        end
+
+        it 'returns 200' do
+          driver.run(timeout: 1) do
+            Net::HTTP.start('127.0.0.1', port, verify_mode: OpenSSL::SSL::VERIFY_NONE, use_ssl: true) do |http|
+              req = Net::HTTP::Get.new('/metrics')
+              res = http.request(req)
+              expect(res.code).to eq('200')
+            end
+          end
+        end
+      end
+
+      context 'cert_path and private_key_path combination' do
+        let(:config) do
+          %[
+            @type prometheus
+            bind 127.0.0.1
+            <ssl>
+              enable true
+              certificate_path path
+              private_key_path path1
+            </ssl>
+          ]
+        end
+
+        it 'converts them into new transport section' do
+          expect(driver.instance).to receive(:http_server_create_http_server).with(
+                                       :in_prometheus_server,
+                                       addr: anything,
+                                       logger: anything,
+                                       port: anything,
+                                       proto: :tls,
+                                       tls_opts: { 'cert_path' => 'path', 'private_key_path' => 'path1' }
+                                     ).once
+
+          driver.run(timeout: 1)
+        end
+      end
+
+      context 'insecure and ca_path' do
+        let(:config) do
+          %[
+            @type prometheus
+            bind 127.0.0.1
+            <ssl>
+              enable true
+              ca_path path
+            </ssl>
+           ]
+        end
+
+        it 'converts them into new transport section' do
+          expect(driver.instance).to receive(:http_server_create_http_server).with(
+                                       :in_prometheus_server,
+                                       addr: anything,
+                                       logger: anything,
+                                       port: anything,
+                                       proto: :tls,
+                                       tls_opts: { 'ca_path' => 'path', 'insecure' => true }
+                                     ).once
+
+          driver.run(timeout: 1)
+        end
+      end
+
+      context 'when only private_key_path is geven' do
+        let(:config) do
+          %[
+            @type prometheus
+            bind 127.0.0.1
+            <ssl>
+              enable true
+              private_key_path path
+            </ssl>
+           ]
+        end
+
+        it 'raises ConfigError' do
+          expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, 'both certificate_path and private_key_path must be defined')
+        end
+      end
+    end
+  end
+
   describe '#run' do
     context '/metrics' do
       let(:config) { LOCAL_CONFIG }
