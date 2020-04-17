@@ -131,7 +131,8 @@ module Fluent::Plugin
       end
 
       ssl_config = {
-        SSLEnable: true
+        SSLEnable: true,
+        SSLCertName: [['CN', 'nobody'], ['DC', 'example']]
       }
 
       if @ssl['certificate_path']
@@ -145,7 +146,7 @@ module Fluent::Plugin
       end
 
       ssl_config[:SSLCACertificateFile] = @ssl['ca_path'] if @ssl['ca_path']
-      ssl_config = ssl_config.merge(@ssl['extra_conf'])
+      ssl_config = ssl_config.merge(@ssl['extra_conf']) if @ssl['extra_conf']
       config = ssl_config.merge(config)
 
       @log.on_debug do
