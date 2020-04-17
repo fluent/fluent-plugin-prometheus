@@ -140,7 +140,7 @@ module Fluent::Plugin
       end
 
       if @ssl['private_key_path']
-        key = OpenSSL::PKey::RSA.new(File.read(@ssl['private_key_path']))
+        key = OpenSSL::PKey.read(@ssl['private_key_path'])
         ssl_config[:SSLPrivateKey] = key
       end
 
