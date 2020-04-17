@@ -169,7 +169,7 @@ module Fluent::Plugin
         res
       end
 
-      thread_create(:in_prometheus) do
+      thread_create(:in_prometheus_webrick) do
         @webrick_server.start
       end
     end
