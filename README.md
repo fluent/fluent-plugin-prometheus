@@ -8,7 +8,8 @@ A fluent plugin that instruments metrics from records and exposes them via web i
 
 | fluent-plugin-prometheus | fluentd    | ruby   |
 |--------------------------|------------|--------|
-| 1.x.y                    | >= v0.14.8 | >= 2.1 |
+| 1.x.y                    | >= v1.9.1  | >= 2.4 |
+| 1.[0-7].y                | >= v0.14.8 | >= 2.1 |
 | 0.x.y                    | >= v0.12.0 | >= 1.9 |
 
 ## Installation
