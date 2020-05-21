@@ -12,6 +12,9 @@ A fluent plugin that instruments metrics from records and exposes them via web i
 | 1.[0-7].y                | >= v0.14.8 | >= 2.1 |
 | 0.x.y                    | >= v0.12.0 | >= 1.9 |
 
+Since v1.8.0, fluent-plugin-prometheus uses [http_server helper](https://docs.fluentd.org/plugin-helper-overview/api-plugin-helper-http_server) to launch HTTP server.
+If you want to handle lots of connections, install `async-http` gem.
+
 ## Installation
 
 Add this line to your application's Gemfile:
@@ -63,6 +66,19 @@ More configuration parameters:
 
 When using multiple workers, each worker binds to port + `fluent_worker_id`.
 To scrape metrics from all workers at once, you can access http://localhost:24231/aggregated_metrics.
+
+#### TLS setting
+
+Use `<trasnport tls>`. See [transport config article](https://docs.fluentd.org/configuration/transport-section) for more details.
+
+```
+<source>
+  @type prometheus
+  <transport tls>
+    # TLS parameters...
+  </transport
+</source>
+```
 
 ### prometheus_monitor input plugin
 
