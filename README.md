@@ -124,7 +124,7 @@ Metrics for output
 - `fluentd_output_status_emit_records`
 - `fluentd_output_status_write_count`
 - `fluentd_output_status_rollback_count`
-- `fluentd_output_status_flush_time_count` from fluentd v1.6.0
+- `fluentd_output_status_flush_time_count` in milliseconds from fluentd v1.6.0
 - `fluentd_output_status_slow_flush_count` from fluentd v1.6.0
 
 Metrics for buffer
