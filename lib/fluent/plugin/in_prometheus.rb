@@ -184,6 +184,11 @@ module Fluent::Plugin
     def all_workers_metrics
       full_result = PromMetricsAggregator.new
 
+      status_code, _, body = all_metrics
+      if status_code == 200
+        full_result.add_metrics(body)
+      end
+
       send_request_to_each_worker do |resp|
         if resp.is_a?(Net::HTTPSuccess)
           full_result.add_metrics(resp.body)
@@ -199,8 +204,11 @@ module Fluent::Plugin
       bind = (@bind == '0.0.0.0') ? '127.0.0.1' : @bind
       req = Net::HTTP::Get.new(@metrics_path)
       [*(@base_port...(@base_port + @num_workers))].each do |worker_port|
-        do_request(host: bind, port: worker_port, secure: @secure) do |http|
-          yield(http.request(req))
+        # Sending request to itself doesn't work in async-http server
+        if worker_port != @port
+          do_request(host: bind, port: worker_port, secure: @secure) do |http|
+            yield(http.request(req))
+          end
         end
       end
     end
