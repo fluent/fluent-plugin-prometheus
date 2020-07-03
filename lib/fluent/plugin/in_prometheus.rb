@@ -73,6 +73,14 @@ module Fluent::Plugin
         return
       end
 
+      begin
+        require 'async'
+        require 'fluent/plugin/in_prometheus/async_wrapper'
+        extend AsyncWrapper
+      rescue LoadError => _
+        # ignore
+      end
+
       tls_opt = if @ssl && @ssl['enable']
                   ssl_config = {}
 
@@ -204,6 +212,7 @@ module Fluent::Plugin
       end
     end
 
+    # might be replaced by AsyncWrapper if async gem is installed
     def do_request(host:, port:, secure:)
       http = Net::HTTP.new(host, port)
 
