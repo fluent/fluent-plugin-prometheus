@@ -214,7 +214,7 @@ module Fluent::Plugin
         http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       end
 
-       http.start do
+      http.start do
         yield(http)
       end
     end
