@@ -185,7 +185,7 @@ module Fluent::Plugin
       full_result = PromMetricsAggregator.new
 
       send_request_to_each_worker do |resp|
-        if resp.is_a?(Net::HTTPSuccess)
+        if resp.code.to_s == '200'
           full_result.add_metrics(resp.body)
         end
       end
