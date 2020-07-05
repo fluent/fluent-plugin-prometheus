@@ -73,6 +73,14 @@ module Fluent::Plugin
         return
       end
 
+      begin
+        require 'async'
+        require 'fluent/plugin/in_prometheus/async_wrapper'
+        extend AsyncWrapper
+      rescue LoadError => _
+        # ignore
+      end
+
       tls_opt = if @ssl && @ssl['enable']
                   ssl_config = {}
 
@@ -185,7 +193,7 @@ module Fluent::Plugin
       full_result = PromMetricsAggregator.new
 
       send_request_to_each_worker do |resp|
-        if resp.is_a?(Net::HTTPSuccess)
+        if resp.code.to_s == '200'
           full_result.add_metrics(resp.body)
         end
       end
@@ -197,14 +205,14 @@ module Fluent::Plugin
 
     def send_request_to_each_worker
       bind = (@bind == '0.0.0.0') ? '127.0.0.1' : @bind
-      req = Net::HTTP::Get.new(@metrics_path)
       [*(@base_port...(@base_port + @num_workers))].each do |worker_port|
         do_request(host: bind, port: worker_port, secure: @secure) do |http|
-          yield(http.request(req))
+          yield(http.get(@metrics_path))
         end
       end
     end
 
+    # might be replaced by AsyncWrapper if async gem is installed
     def do_request(host:, port:, secure:)
       http = Net::HTTP.new(host, port)
 
@@ -214,7 +222,7 @@ module Fluent::Plugin
         http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       end
 
-       http.start do
+      http.start do
         yield(http)
       end
     end
