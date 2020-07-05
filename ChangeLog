@@ -1,0 +1,11 @@
+Release 1.8.1 - 2020/07/06
+
+	* Fix aggregate bug with async-http
+
+Release 1.8.0 - 2020/04/17
+
+	* Use http_server helper
+	* Require fluentd v1.9.1 or later
+
+
+For older releases, see commits on github repository.
