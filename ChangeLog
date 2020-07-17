@@ -1,3 +1,7 @@
+Release 1.8.2 - 2020/07/17
+
+	* in_prometheus_output_monitor/in_prometheus_tail_monitor: Support USR2 reload
+
 Release 1.8.1 - 2020/07/06
 
 	* Fix aggregate bug with async-http
