@@ -1,9 +1,9 @@
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/plugin/in_monitor_agent'
 require 'fluent/plugin/prometheus'
 
 module Fluent::Plugin
-  class PrometheusOutputMonitorInput < Fluent::Input
+  class PrometheusOutputMonitorInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('prometheus_output_monitor', self)
     include Fluent::Plugin::PrometheusLabelParser
 
@@ -53,12 +53,7 @@ module Fluent::Plugin
         @base_labels[key] = expander.expand(value)
       end
 
-      if defined?(Fluent::Plugin) && defined?(Fluent::Plugin::MonitorAgentInput)
-        # from v0.14.6
-        @monitor_agent = Fluent::Plugin::MonitorAgentInput.new
-      else
-        @monitor_agent = Fluent::MonitorAgentInput.new
-      end
+      @monitor_agent = Fluent::Plugin::MonitorAgentInput.new
     end
 
     def start
@@ -66,57 +61,57 @@ module Fluent::Plugin
 
       @metrics = {
         # Buffer metrics
-        buffer_total_queued_size: @registry.gauge(
+        buffer_total_queued_size: get_gauge(
           :fluentd_output_status_buffer_total_bytes,
           'Current total size of stage and queue buffers.'),
-        buffer_stage_length: @registry.gauge(
+        buffer_stage_length: get_gauge(
           :fluentd_output_status_buffer_stage_length,
           'Current length of stage buffers.'),
-        buffer_stage_byte_size: @registry.gauge(
+        buffer_stage_byte_size: get_gauge(
           :fluentd_output_status_buffer_stage_byte_size,
           'Current total size of stage buffers.'),
-        buffer_queue_length: @registry.gauge(
+        buffer_queue_length: get_gauge(
           :fluentd_output_status_buffer_queue_length,
           'Current length of queue buffers.'),
-        buffer_queue_byte_size: @registry.gauge(
+        buffer_queue_byte_size: get_gauge(
           :fluentd_output_status_queue_byte_size,
           'Current total size of queue buffers.'),
-        buffer_available_buffer_space_ratios: @registry.gauge(
+        buffer_available_buffer_space_ratios: get_gauge(
           :fluentd_output_status_buffer_available_space_ratio,
           'Ratio of available space in buffer.'),
-        buffer_newest_timekey: @registry.gauge(
+        buffer_newest_timekey: get_gauge(
           :fluentd_output_status_buffer_newest_timekey,
           'Newest timekey in buffer.'),
-        buffer_oldest_timekey: @registry.gauge(
+        buffer_oldest_timekey: get_gauge(
           :fluentd_output_status_buffer_oldest_timekey,
           'Oldest timekey in buffer.'),
 
         # Output metrics
-        retry_counts: @registry.gauge(
+        retry_counts: get_gauge(
           :fluentd_output_status_retry_count,
           'Current retry counts.'),
-        num_errors: @registry.gauge(
+        num_errors: get_gauge(
           :fluentd_output_status_num_errors,
           'Current number of errors.'),
-        emit_count: @registry.gauge(
+        emit_count: get_gauge(
           :fluentd_output_status_emit_count,
           'Current emit counts.'),
-        emit_records: @registry.gauge(
+        emit_records: get_gauge(
           :fluentd_output_status_emit_records,
           'Current emit records.'),
-        write_count: @registry.gauge(
+        write_count: get_gauge(
           :fluentd_output_status_write_count,
           'Current write counts.'),
-        rollback_count: @registry.gauge(
+        rollback_count: get_gauge(
           :fluentd_output_status_rollback_count,
           'Current rollback counts.'),
-        flush_time_count: @registry.gauge(
+        flush_time_count: get_gauge(
           :fluentd_output_status_flush_time_count,
           'Total flush time.'),
-        slow_flush_count: @registry.gauge(
+        slow_flush_count: get_gauge(
           :fluentd_output_status_slow_flush_count,
           'Current slow flush counts.'),
-        retry_wait: @registry.gauge(
+        retry_wait: get_gauge(
           :fluentd_output_status_retry_wait,
           'Current retry wait'),
       }
@@ -197,6 +192,14 @@ module Fluent::Plugin
         plugin_id: plugin_info["plugin_id"],
         type: plugin_info["type"],
       )
+    end
+
+    def get_gauge(name, docstring)
+      if @registry.exist?(name)
+        @registry.get(name)
+      else
+        @registry.gauge(name, docstring)
+      end
     end
   end
 end
