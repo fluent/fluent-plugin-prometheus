@@ -38,22 +38,17 @@ module Fluent::Plugin
         @base_labels[key] = expander.expand(value)
       end
 
-      if defined?(Fluent::Plugin) && defined?(Fluent::Plugin::MonitorAgentInput)
-        # from v0.14.6
-        @monitor_agent = Fluent::Plugin::MonitorAgentInput.new
-      else
-        @monitor_agent = Fluent::MonitorAgentInput.new
-      end
+      @monitor_agent = Fluent::Plugin::MonitorAgentInput.new
     end
 
     def start
       super
 
       @metrics = {
-        position: @registry.gauge(
+        position: get_gauge(
           :fluentd_tail_file_position,
           'Current position of file.'),
-        inode: @registry.gauge(
+        inode: get_gauge(
           :fluentd_tail_file_inode,
           'Current inode of file.'),
       }
@@ -90,6 +85,14 @@ module Fluent::Plugin
         type: plugin_info["type"],
         path: path,
       )
+    end
+
+    def get_gauge(name, docstring)
+      if @registry.exist?(name)
+        @registry.get(name)
+      else
+        @registry.gauge(name, docstring)
+      end
     end
   end
 end
