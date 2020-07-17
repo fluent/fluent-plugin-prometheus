@@ -1,9 +1,9 @@
-require 'fluent/input'
+require 'fluent/plugin/input'
 require 'fluent/plugin/in_monitor_agent'
 require 'fluent/plugin/prometheus'
 
 module Fluent::Plugin
-  class PrometheusOutputMonitorInput < Fluent::Input
+  class PrometheusOutputMonitorInput < Fluent::Plugin::Input
     Fluent::Plugin.register_input('prometheus_output_monitor', self)
     include Fluent::Plugin::PrometheusLabelParser
 
@@ -53,12 +53,7 @@ module Fluent::Plugin
         @base_labels[key] = expander.expand(value)
       end
 
-      if defined?(Fluent::Plugin) && defined?(Fluent::Plugin::MonitorAgentInput)
-        # from v0.14.6
-        @monitor_agent = Fluent::Plugin::MonitorAgentInput.new
-      else
-        @monitor_agent = Fluent::MonitorAgentInput.new
-      end
+      @monitor_agent = Fluent::Plugin::MonitorAgentInput.new
     end
 
     def start
