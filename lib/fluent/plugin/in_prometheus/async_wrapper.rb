@@ -13,8 +13,9 @@ module Fluent::Plugin
             Async::HTTP::Endpoint.parse("http://#{host}:#{port}")
           end
 
-        client = Async::HTTP::Client.new(endpoint)
-        yield(AsyncHttpWrapper.new(client))
+        Async::HTTP::Client.open(endpoint) do |client|
+          yield(AsyncHttpWrapper.new(client))
+        end
       end
 
       Response = Struct.new(:code, :body, :headers)
@@ -38,7 +39,7 @@ module Fluent::Plugin
             raise error
           end
 
-          Response.new(response.status.to_s, response.body.read, response.headers)
+          Response.new(response.status.to_s, response.read, response.headers)
         end
       end
     end
