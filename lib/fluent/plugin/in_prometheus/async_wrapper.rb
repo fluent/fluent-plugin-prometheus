@@ -39,7 +39,7 @@ module Fluent::Plugin
             raise error
           end
 
-          Response.new(response.status.to_s, response.read, response.headers)
+          Response.new(response.status.to_s, response.read || '', response.headers)
         end
       end
     end
