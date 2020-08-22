@@ -38,7 +38,13 @@ module Fluent::Plugin
             raise error
           end
 
-          Response.new(response.status.to_s, response.body.read, response.headers)
+          body =
+            if response.body.nil?
+              ''
+            else
+              response.body.read
+            end
+          Response.new(response.status.to_s, body, response.headers)
         end
       end
     end
