@@ -10,6 +10,7 @@ module Fluent::Plugin
     helpers :timer
 
     config_param :interval, :time, default: 5
+    config_param :gauge_all, :bool, default: true
     attr_reader :registry
 
     MONITOR_IVARS = [
@@ -54,6 +55,8 @@ module Fluent::Plugin
       end
 
       @monitor_agent = Fluent::Plugin::MonitorAgentInput.new
+
+      @gauge_or_counter = @gauge_all ? :gauge : :counter
     end
 
     def start
@@ -87,28 +90,28 @@ module Fluent::Plugin
           'Oldest timekey in buffer.'),
 
         # Output metrics
-        retry_counts: get_gauge(
+        retry_counts: get_gauge_or_counter(
           :fluentd_output_status_retry_count,
           'Current retry counts.'),
-        num_errors: get_gauge(
+        num_errors: get_gauge_or_counter(
           :fluentd_output_status_num_errors,
           'Current number of errors.'),
-        emit_count: get_gauge(
+        emit_count: get_gauge_or_counter(
           :fluentd_output_status_emit_count,
           'Current emit counts.'),
-        emit_records: get_gauge(
+        emit_records: get_gauge_or_counter(
           :fluentd_output_status_emit_records,
           'Current emit records.'),
-        write_count: get_gauge(
+        write_count: get_gauge_or_counter(
           :fluentd_output_status_write_count,
           'Current write counts.'),
         rollback_count: get_gauge(
           :fluentd_output_status_rollback_count,
           'Current rollback counts.'),
-        flush_time_count: get_gauge(
+        flush_time_count: get_gauge_or_counter(
           :fluentd_output_status_flush_time_count,
           'Total flush time.'),
-        slow_flush_count: get_gauge(
+        slow_flush_count: get_gauge_or_counter(
           :fluentd_output_status_slow_flush_count,
           'Current slow flush counts.'),
         retry_wait: get_gauge(
@@ -157,14 +160,22 @@ module Fluent::Plugin
 
         monitor_info.each do |name, metric|
           if info[name]
-            metric.set(label, info[name])
+            if metric.is_a?(::Prometheus::Client::Gauge)
+              metric.set(label, info[name])
+            elsif metric.is_a?(::Prometheus::Client::Counter)
+              metric.increment(label, info[name] - metric.get(label))
+            end
           end
         end
 
         if info['instance_variables']
           instance_vars_info.each do |name, metric|
             if info['instance_variables'][name]
-              metric.set(label, info['instance_variables'][name])
+              if metric.is_a?(::Prometheus::Client::Gauge)
+                metric.set(label, info['instance_variables'][name])
+              elsif metric.is_a?(::Prometheus::Client::Counter)
+                metric.increment(label, info['instance_variables'][name] - metric.get(label))
+              end
             end
           end
         end
@@ -199,6 +210,14 @@ module Fluent::Plugin
         @registry.get(name)
       else
         @registry.gauge(name, docstring)
+      end
+    end
+
+    def get_gauge_or_counter(name, docstring)
+      if @registry.exist?(name)
+        @registry.get(name)
+      else
+        @registry.public_send(@gauge_or_counter, name, docstring)
       end
     end
   end
