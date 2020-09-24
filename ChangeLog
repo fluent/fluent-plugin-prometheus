@@ -1,3 +1,7 @@
+Release 1.8.4 - 2020/09/24
+
+	* in_prometheus_output_monitor: Add gauge_all parameter
+
 Release 1.8.3 - 2020/08/24
 
 	* Fix resourcr leak in async-http based server
