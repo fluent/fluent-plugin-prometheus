@@ -152,6 +152,7 @@ More configuration parameters:
 
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 - `interval`: interval to update monitor_agent information in seconds (default: 5)
+- `gauge_all`: Specify metric type. If `true`, use `gauge` type. If `false`, use `counter` type. Since v2, this parameter will be removed and use `counter` type.
 
 ### prometheus_tail_monitor input plugin
 
