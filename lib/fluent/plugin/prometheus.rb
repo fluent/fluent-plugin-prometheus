@@ -188,7 +188,7 @@ module Fluent
           end
 
           begin
-            @gauge = registry.gauge(element['name'].to_sym, element['desc'])
+            @gauge = registry.gauge(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @gauge = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :gauge, element['desc'])
           end
@@ -201,7 +201,7 @@ module Fluent
             value = @key.call(record)
           end
           if value
-            @gauge.set(labels(record, expander), value)
+            @gauge.set(value, labels: labels(record, expander))
           end
         end
       end
@@ -210,7 +210,7 @@ module Fluent
         def initialize(element, registry, labels)
           super
           begin
-            @counter = registry.counter(element['name'].to_sym, element['desc'])
+            @counter = registry.counter(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @counter = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :counter, element['desc'])
           end
@@ -229,7 +229,7 @@ module Fluent
           # ignore if record value is nil
           return if value.nil?
 
-          @counter.increment(labels(record, expander), value)
+          @counter.increment(by: value, labels: labels(record, expander))
         end
       end
 
@@ -241,7 +241,7 @@ module Fluent
           end
 
           begin
-            @summary = registry.summary(element['name'].to_sym, element['desc'])
+            @summary = registry.summary(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @summary = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :summary, element['desc'])
           end
@@ -254,7 +254,7 @@ module Fluent
             value = @key.call(record)
           end
           if value
-            @summary.observe(labels(record, expander), value)
+            @summary.observe(value, labels: labels(record, expander))
           end
         end
       end
@@ -271,9 +271,9 @@ module Fluent
               buckets = element['buckets'].split(/,/).map(&:strip).map do |e|
                 e[/\A\d+.\d+\Z/] ? e.to_f : e.to_i
               end
-              @histogram = registry.histogram(element['name'].to_sym, element['desc'], {}, buckets)
+              @histogram = registry.histogram(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys, buckets: buckets)
             else
-              @histogram = registry.histogram(element['name'].to_sym, element['desc'])
+              @histogram = registry.histogram(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys)
             end
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @histogram = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])
@@ -287,7 +287,7 @@ module Fluent
             value = @key.call(record)
           end
           if value
-            @histogram.observe(labels(record, expander), value)
+            @histogram.observe(value, labels: labels(record, expander))
           end
         end
       end
