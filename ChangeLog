@@ -1,3 +1,7 @@
+Release 1.8.5 - 2020/11/24
+
+	* in_prometheus_monitor: Support USR2 reload
+
 Release 1.8.4 - 2020/09/24
 
 	* in_prometheus_output_monitor: Add gauge_all parameter
