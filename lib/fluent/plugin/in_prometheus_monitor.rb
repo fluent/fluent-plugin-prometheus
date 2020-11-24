@@ -46,19 +46,19 @@ module Fluent::Plugin
     def start
       super
 
-      @buffer_newest_timekey = @registry.gauge(
+      @buffer_newest_timekey = get_gauge(
         :fluentd_status_buffer_newest_timekey,
         'Newest timekey in buffer.')
-      @buffer_oldest_timekey = @registry.gauge(
+      @buffer_oldest_timekey = get_gauge(
         :fluentd_status_buffer_oldest_timekey,
         'Oldest timekey in buffer.')
-      buffer_queue_length = @registry.gauge(
+      buffer_queue_length = get_gauge(
         :fluentd_status_buffer_queue_length,
         'Current buffer queue length.')
-      buffer_total_queued_size = @registry.gauge(
+      buffer_total_queued_size = get_gauge(
         :fluentd_status_buffer_total_bytes,
         'Current total size of queued buffers.')
-      retry_counts = @registry.gauge(
+      retry_counts = get_gauge(
         :fluentd_status_retry_count,
         'Current retry counts.')
 
@@ -94,6 +94,14 @@ module Fluent::Plugin
         plugin_category: plugin_info["plugin_category"],
         type: plugin_info["type"],
       )
+    end
+
+    def get_gauge(name, docstring)
+      if @registry.exist?(name)
+        @registry.get(name)
+      else
+        @registry.gauge(name, docstring)
+      end
     end
   end
 end
