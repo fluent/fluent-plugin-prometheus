@@ -76,14 +76,14 @@ module Fluent::Plugin
 
         @monitor_info.each do |name, metric|
           if info[name]
-            metric.set(label, info[name])
+            metric.set(info[name], labels: label)
           end
         end
 
         timekeys = info["buffer_timekeys"]
         if timekeys && !timekeys.empty?
-          @buffer_newest_timekey.set(label, timekeys.max)
-          @buffer_oldest_timekey.set(label, timekeys.min)
+          @buffer_newest_timekey.set(timekeys.max, labels: label)
+          @buffer_oldest_timekey.set(timekeys.min, labels: label)
         end
       end
     end
@@ -100,7 +100,7 @@ module Fluent::Plugin
       if @registry.exist?(name)
         @registry.get(name)
       else
-        @registry.gauge(name, docstring)
+        @registry.gauge(name, docstring: docstring, labels: @base_labels.keys + [:plugin_id, :plugin_category, :type])
       end
     end
   end

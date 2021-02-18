@@ -73,8 +73,8 @@ module Fluent::Plugin
           # Very fragile implementation
           pe = watcher.instance_variable_get(:@pe)
           label = labels(info, watcher.path)
-          @metrics[:inode].set(label, pe.read_inode)
-          @metrics[:position].set(label, pe.read_pos)
+          @metrics[:inode].set(pe.read_inode, labels: label)
+          @metrics[:position].set(pe.read_pos, labels: label)
         end
       end
     end
@@ -91,7 +91,7 @@ module Fluent::Plugin
       if @registry.exist?(name)
         @registry.get(name)
       else
-        @registry.gauge(name, docstring)
+        @registry.gauge(name, docstring: docstring, labels: @base_labels.keys + [:plugin_id, :type, :path])
       end
     end
   end

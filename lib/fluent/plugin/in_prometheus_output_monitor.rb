@@ -161,9 +161,9 @@ module Fluent::Plugin
         monitor_info.each do |name, metric|
           if info[name]
             if metric.is_a?(::Prometheus::Client::Gauge)
-              metric.set(label, info[name])
+              metric.set(info[name], labels: label)
             elsif metric.is_a?(::Prometheus::Client::Counter)
-              metric.increment(label, info[name] - metric.get(label))
+              metric.increment(by: info[name] - metric.get(labels: label), labels: label)
             end
           end
         end
@@ -172,9 +172,9 @@ module Fluent::Plugin
           instance_vars_info.each do |name, metric|
             if info['instance_variables'][name]
               if metric.is_a?(::Prometheus::Client::Gauge)
-                metric.set(label, info['instance_variables'][name])
+                metric.set(info['instance_variables'][name], labels: label)
               elsif metric.is_a?(::Prometheus::Client::Counter)
-                metric.increment(label, info['instance_variables'][name] - metric.get(label))
+                metric.increment(by: info['instance_variables'][name] - metric.get(labels: label), labels: label)
               end
             end
           end
@@ -193,7 +193,7 @@ module Fluent::Plugin
           if next_time && start_time
             wait = next_time - start_time
           end
-          @metrics[:retry_wait].set(label, wait.to_f)
+          @metrics[:retry_wait].set(wait.to_f, labels: label)
         end
       end
     end
@@ -209,7 +209,7 @@ module Fluent::Plugin
       if @registry.exist?(name)
         @registry.get(name)
       else
-        @registry.gauge(name, docstring)
+        @registry.gauge(name, docstring: docstring, labels: @base_labels.keys + [:plugin_id, :type])
       end
     end
 
@@ -217,7 +217,7 @@ module Fluent::Plugin
       if @registry.exist?(name)
         @registry.get(name)
       else
-        @registry.public_send(@gauge_or_counter, name, docstring)
+        @registry.public_send(@gauge_or_counter, name, docstring: docstring, labels: @base_labels.keys + [:plugin_id, :type])
       end
     end
   end

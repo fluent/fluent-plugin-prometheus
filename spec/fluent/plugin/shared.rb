@@ -178,20 +178,19 @@ shared_examples_for 'instruments record' do
 
     it 'instruments counter metric' do
       expect(counter.type).to eq(:counter)
-      expect(counter.get({test_key: 'test_value', key: 'foo1'})).to be_kind_of(Numeric)
-      expect(counter_with_accessor.get({test_key: 'test_value', key: 'foo6'})).to be_kind_of(Numeric)
+      expect(counter.get(labels: {test_key: 'test_value', key: 'foo1'})).to be_kind_of(Numeric)
+      expect(counter_with_accessor.get(labels: {test_key: 'test_value', key: 'foo6'})).to be_kind_of(Numeric)
     end
 
     it 'instruments gauge metric' do
       expect(gauge.type).to eq(:gauge)
-      expect(gauge.get({test_key: 'test_value', key: 'foo2'})).to eq(100)
+      expect(gauge.get(labels: {test_key: 'test_value', key: 'foo2'})).to eq(100)
     end
 
     it 'instruments summary metric' do
       expect(summary.type).to eq(:summary)
-      expect(summary.get({test_key: 'test_value', key: 'foo3'})).to be_kind_of(Hash)
-      expect(summary.get({test_key: 'test_value', key: 'foo3'})[0.99]).to eq(100)
-      expect(summary_with_accessor.get({test_key: 'test_value', key: 'foo5'})[0.99]).to eq(100)
+      expect(summary.get(labels: {test_key: 'test_value', key: 'foo3'})).to be_kind_of(Hash)
+      expect(summary_with_accessor.get(labels: {test_key: 'test_value', key: 'foo5'})["sum"]).to eq(100)
     end
 
     it 'instruments histogram metric' do
@@ -200,8 +199,8 @@ shared_examples_for 'instruments record' do
       end
 
       expect(histogram.type).to eq(:histogram)
-      expect(histogram.get({test_key: 'test_value', key: 'foo4'})).to be_kind_of(Hash)
-      expect(histogram.get({test_key: 'test_value', key: 'foo4'})[10]).to eq(5) # 4 + `es` in before
+      expect(histogram.get(labels: {test_key: 'test_value', key: 'foo4'})).to be_kind_of(Hash)
+      expect(histogram.get(labels: {test_key: 'test_value', key: 'foo4'})["10"]).to eq(5) # 4 + `es` in before
     end
   end
 
@@ -231,7 +230,7 @@ shared_examples_for 'instruments record' do
       expect(counter).to be_kind_of(::Prometheus::Client::Metric)
       key, _ = counter.values.find {|k,v| v ==  100 }
       expect(key).to be_kind_of(Hash)
-      expect(key[:foo]).to eq(100)
+      expect(key[:foo]).to eq("100")
     end
   end
 
