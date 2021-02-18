@@ -1,3 +1,7 @@
+Release 2.0.0 - 2021/02/18
+
+	* Update prometheus-client dependency to 2.1.0 or later
+
 Release 1.8.5 - 2020/11/24
 
 	* in_prometheus_monitor: Support USR2 reload
