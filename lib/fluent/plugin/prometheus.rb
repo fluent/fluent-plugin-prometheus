@@ -85,6 +85,19 @@ module Fluent
         Fluent::Plugin::Prometheus::ExpandBuilder.new(log: log)
       end
 
+      def stringify_keys(hash_to_stringify)
+        # Adapted from: https://www.jvt.me/posts/2019/09/07/ruby-hash-keys-string-symbol/
+        h = hash_to_stringify.map do |k,v|
+          v_str = if v.instance_of? Hash
+                    v.stringify_keys
+                  else
+                    v
+                  end
+          [k.to_s, v_str]
+        end
+        Hash[h]
+      end
+
       def configure(conf)
         super
         @placeholder_values = {}
@@ -99,6 +112,7 @@ module Fluent
           'worker_id' => fluentd_worker_id,
         }
 
+        record = stringify_keys(record)
         placeholders = record.merge(@placeholder_values[tag])
         expander = @placeholder_expander_builder.build(placeholders)
         metrics.each do |metric|
@@ -119,6 +133,7 @@ module Fluent
         }
 
         es.each do |time, record|
+          record = stringify_keys(record)
           placeholders = record.merge(placeholder_values)
           expander = @placeholder_expander_builder.build(placeholders)
           metrics.each do |metric|
