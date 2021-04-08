@@ -87,15 +87,14 @@ module Fluent
 
       def stringify_keys(hash_to_stringify)
         # Adapted from: https://www.jvt.me/posts/2019/09/07/ruby-hash-keys-string-symbol/
-        h = hash_to_stringify.map do |k,v|
-          v_str = if v.instance_of? Hash
-                    v.stringify_keys
-                  else
-                    v
-                  end
-          [k.to_s, v_str]
-        end
-        Hash[h]
+        hash_to_stringify.map do |k,v|
+          value_or_hash = if v.instance_of? Hash
+                            stringify_keys(v)
+                          else
+                            v
+                          end
+          [k.to_s, value_or_hash]
+        end.to_h
       end
 
       def configure(conf)
