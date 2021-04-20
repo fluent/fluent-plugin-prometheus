@@ -5,12 +5,18 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         ruby: [ '2.5', '2.6', '2.7', '3.0' ]
         os:
           - ubuntu-latest
+        experimental: [false]
+        include:
+          - ruby: head
+            os: ubuntu-latest
+            experimental: true
     name: Ruby ${{ matrix.ruby }} unit testing on ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
