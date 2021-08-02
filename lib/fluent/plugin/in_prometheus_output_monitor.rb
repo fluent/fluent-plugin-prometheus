@@ -144,7 +144,16 @@ module Fluent::Plugin
 
         # output metrics
         'retry_count' => @metrics[:retry_counts],
+        # Needed since Fluentd v1.14 due to metrics extensions.
+        'num_errors' => @metrics[:num_errors],
+        'write_count' => @metrics[:write_count],
+        'emit_count' => @metrics[:emit_count],
+        'emit_records' => @metrics[:emit_records],
+        'rollback_count' => @metrics[:rollback_count],
+        'flush_time_count' => @metrics[:flush_time_count],
+        'slow_flush_count' => @metrics[:slow_flush_count],
       }
+      # No needed for Fluentd v1.14 but leave as-is for backward compatibility.
       instance_vars_info = {
         num_errors: @metrics[:num_errors],
         write_count: @metrics[:write_count],
