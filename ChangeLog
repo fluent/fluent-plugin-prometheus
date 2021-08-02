@@ -1,3 +1,7 @@
+Release 2.0.2 - 2021/08/02
+
+	* in_prometheus_output_monitor: Follow Fluentd's core metrics mechanism
+
 Release 2.0.1 - 2021/04/08
 
 	* out_prometheus: Allow for lookup by symbol as well as string
