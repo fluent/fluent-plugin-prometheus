@@ -133,25 +133,24 @@ module Fluent::Plugin
 
       monitor_info = {
         # buffer metrics
-        'buffer_total_queued_size' => @metrics[:buffer_total_queued_size],
-        'buffer_stage_length' => @metrics[:buffer_stage_length],
-        'buffer_stage_byte_size' => @metrics[:buffer_stage_byte_size],
-        'buffer_queue_length' => @metrics[:buffer_queue_length],
-        'buffer_queue_byte_size' => @metrics[:buffer_queue_byte_size],
-        'buffer_available_buffer_space_ratios' => @metrics[:buffer_available_buffer_space_ratios],
-        'buffer_newest_timekey' => @metrics[:buffer_newest_timekey],
-        'buffer_oldest_timekey' => @metrics[:buffer_oldest_timekey],
+        'buffer_total_queued_size' => [@metrics[:buffer_total_queued_size]],
+        'buffer_stage_length' => [@metrics[:buffer_stage_length]],
+        'buffer_stage_byte_size' => [@metrics[:buffer_stage_byte_size]],
+        'buffer_queue_length' => [@metrics[:buffer_queue_length]],
+        'buffer_queue_byte_size' => [@metrics[:buffer_queue_byte_size]],
+        'buffer_available_buffer_space_ratios' => [@metrics[:buffer_available_buffer_space_ratios]],
+        'buffer_newest_timekey' => [@metrics[:buffer_newest_timekey]],
+        'buffer_oldest_timekey' => [@metrics[:buffer_oldest_timekey]],
 
         # output metrics
-        'retry_count' => @metrics[:retry_counts],
+        'retry_count' => [@metrics[:retry_counts], @metrics[:num_errors]],
         # Needed since Fluentd v1.14 due to metrics extensions.
-        'num_errors' => @metrics[:num_errors],
-        'write_count' => @metrics[:write_count],
-        'emit_count' => @metrics[:emit_count],
-        'emit_records' => @metrics[:emit_records],
-        'rollback_count' => @metrics[:rollback_count],
-        'flush_time_count' => @metrics[:flush_time_count],
-        'slow_flush_count' => @metrics[:slow_flush_count],
+        'write_count' => [@metrics[:write_count]],
+        'emit_count' => [@metrics[:emit_count]],
+        'emit_records' => [@metrics[:emit_records]],
+        'rollback_count' => [@metrics[:rollback_count]],
+        'flush_time_count' => [@metrics[:flush_time_count]],
+        'slow_flush_count' => [@metrics[:slow_flush_count]],
       }
       # No needed for Fluentd v1.14 but leave as-is for backward compatibility.
       instance_vars_info = {
@@ -167,12 +166,14 @@ module Fluent::Plugin
       agent_info.each do |info|
         label = labels(info)
 
-        monitor_info.each do |name, metric|
-          if info[name]
-            if metric.is_a?(::Prometheus::Client::Gauge)
-              metric.set(info[name], labels: label)
-            elsif metric.is_a?(::Prometheus::Client::Counter)
-              metric.increment(by: info[name] - metric.get(labels: label), labels: label)
+        monitor_info.each do |name, metrics|
+          metrics.each do |metric|
+            if info[name]
+              if metric.is_a?(::Prometheus::Client::Gauge)
+                metric.set(info[name], labels: label)
+              elsif metric.is_a?(::Prometheus::Client::Counter)
+                metric.increment(by: info[name] - metric.get(labels: label), labels: label)
+              end
             end
           end
         end
