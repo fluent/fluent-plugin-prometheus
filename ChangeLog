@@ -1,3 +1,7 @@
+Release 2.0.3 - 2022/05/06
+
+	* in_prometheus_output_monitor: Fix a bug where output_status_num_errors metric is missing
+
 Release 2.0.2 - 2021/08/02
 
 	* in_prometheus_output_monitor: Follow Fluentd's core metrics mechanism

@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name          = "fluent-plugin-prometheus"
-  spec.version       = "2.0.2"
+  spec.version       = "2.0.3"
   spec.authors       = ["Masahiro Sano"]
   spec.email         = ["sabottenda@gmail.com"]
   spec.summary       = %q{A fluent plugin that collects metrics and exposes for Prometheus.}
