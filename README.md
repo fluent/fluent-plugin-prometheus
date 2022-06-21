@@ -162,10 +162,11 @@ This plugin uses internal class of Fluentd, so it's easy to break.
 
 #### Exposed metrics
 
-- `fluentd_tail_file_position`
-    - Current bytes which plugin reads from the file
-- `fluentd_tail_file_inode`
-    - inode of the file
+- `fluentd_tail_file_position`: Current bytes which plugin reads from the file
+- `fluentd_tail_file_inode`: inode of the file
+- `fluentd_tail_file_closed`: Number of closed files
+- `fluentd_tail_file_opened`: Number of opened files
+- `fluentd_tail_file_rotated`: Number of rotated files
 
 Default labels:
 

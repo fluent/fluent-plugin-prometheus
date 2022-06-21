@@ -51,7 +51,16 @@ module Fluent::Plugin
         inode: get_gauge(
           :fluentd_tail_file_inode,
           'Current inode of file.'),
-      }
+        closed_file_metrics: get_gauge(
+          :fluentd_tail_file_closed,
+          'Number of files closed.'),
+        opened_file_metrics: get_gauge(
+          :fluentd_tail_file_opened,
+          'Number of files opened.'),
+        rotated_file_metrics: get_gauge(
+          :fluentd_tail_file_rotated,
+          'Number of files rotated.'),
+    }
       timer_execute(:in_prometheus_tail_monitor, @interval, &method(:update_monitor_info))
     end
 
@@ -72,9 +81,13 @@ module Fluent::Plugin
           # Access to internal variable of internal class...
           # Very fragile implementation
           pe = watcher.instance_variable_get(:@pe)
+          monitor_info = watcher.instance_variable_get(:@metrics)
           label = labels(info, watcher.path)
           @metrics[:inode].set(pe.read_inode, labels: label)
           @metrics[:position].set(pe.read_pos, labels: label)
+          @metrics[:closed_file_metrics].set(monitor_info.closed.get, labels: label)
+          @metrics[:opened_file_metrics].set(monitor_info.opened.get, labels: label)
+          @metrics[:rotated_file_metrics].set(monitor_info.rotated.get, labels: label)
         end
       end
     end
