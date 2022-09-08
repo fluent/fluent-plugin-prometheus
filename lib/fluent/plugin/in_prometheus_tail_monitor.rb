@@ -60,7 +60,7 @@ module Fluent::Plugin
         rotated_file_metrics: get_gauge(
           :fluentd_tail_file_rotated,
           'Number of files rotated.'),
-    }
+      }
       timer_execute(:in_prometheus_tail_monitor, @interval, &method(:update_monitor_info))
     end
 
@@ -85,9 +85,11 @@ module Fluent::Plugin
           label = labels(info, watcher.path)
           @metrics[:inode].set(pe.read_inode, labels: label)
           @metrics[:position].set(pe.read_pos, labels: label)
-          @metrics[:closed_file_metrics].set(monitor_info.closed.get, labels: label)
-          @metrics[:opened_file_metrics].set(monitor_info.opened.get, labels: label)
-          @metrics[:rotated_file_metrics].set(monitor_info.rotated.get, labels: label)
+          unless monitor_info.nil?
+            @metrics[:closed_file_metrics].set(monitor_info.closed.get, labels: label)
+            @metrics[:opened_file_metrics].set(monitor_info.opened.get, labels: label)
+            @metrics[:rotated_file_metrics].set(monitor_info.rotated.get, labels: label)
+          end
         end
       end
     end
