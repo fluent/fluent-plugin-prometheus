@@ -286,7 +286,9 @@ For details of each metric type, see [Prometheus documentation](http://prometheu
 - `type`: metric type (required)
 - `desc`: description of this metric (required)
 - `key`: key name of record for instrumentation (**optional**)
+- `initialized`: boolean controlling initilization of metric (**optional**). See [Metric initialization](#metric-initialization)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
+- `<initlabels>`: labels to use for initialization of ReccordAccessors/Placeholder labels (**optional**). See [Metric initialization](#metric-initialization)
 
 If key is empty, the metric values is treated as 1, so the counter increments by 1 on each record regardless of contents of the record.
 
@@ -310,7 +312,9 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `type`: metric type (required)
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
+- `initialized`: boolean controlling initilization of metric (**optional**). See [Metric initialization](#metric-initialization)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
+- `<initlabels>`: labels to use for initialization of ReccordAccessors/Placeholder labels (**optional**). See [Metric initialization](#metric-initialization)
 
 ### summary type
 
@@ -332,7 +336,9 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `type`: metric type (required)
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
+- `initialized`: boolean controlling initilization of metric (**optional**). See [Metric initialization](#metric-initialization)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
+- `<initlabels>`: labels to use for initialization of ReccordAccessors/Placeholder labels (**optional**). See [Metric initialization](#metric-initialization)
 
 ### histogram type
 
@@ -355,8 +361,10 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `type`: metric type (required)
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
+- `initialized`: boolean controlling initilization of metric (**optional**). See [Metric initialization](#metric-initialization)
 - `buckets`: buckets of record for instrumentation (optional)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
+- `<initlabels>`: labels to use for initialization of ReccordAccessors/Placeholder labels (**optional**). See [Metric initialization](#metric-initialization)
 
 ## Labels
 
@@ -394,6 +402,53 @@ Reserved placeholders are:
 - `${tag_suffix[N]}` refers to the [`tagsize`-1-N..] part of the tag.
   - where `tagsize` is the size of tag which is splitted with `.` (when tag is `1.2.3`, then `tagsize` is 3)
   - only available in Prometheus output/filter plugin
+
+### Metric initialization
+
+You can configure if a metric should be initialized to its zero value before receiving any event. To do so you just need to specify `initialized true`.
+
+```
+<metric>
+  name message_bar_counter
+  type counter
+  desc The total number of bar in message.
+  key bar
+  initialized true
+  <labels>
+    foo bar
+  </labels>
+</metric>
+```
+
+If your labels contains ReccordAccessors or Placeholders, you must use `<initlabels>` to specify the values your ReccordAccessors/Placeholders will take. This feature is useful only if your Placeholders/ReccordAccessors contain deterministic values. Initialization will create as many zero value metrics as `<initlabels>` blocks you defined.
+Potential reserved placeholders `${hostname}` and `${worker_id}`, as well as static labels, are automatically added and should not be specified in `<initlabels>` configuration.
+
+```
+<metric>
+  name message_bar_counter
+  type counter
+  desc The total number of bar in message.
+  key bar
+  initialized true
+  <labels>
+    key $.foo
+    tag ${tag}
+    foo bar
+    worker_id ${worker_id}
+  </labels>
+  <initlabels>
+    key foo1
+    tag tag1
+  </initlabels>
+  <initlabels>
+    key foo2
+    tag tag2
+  </initlabels>
+</metric>
+<labels>
+  hostname ${hostname}
+</labels>
+```
 
 ### top-level labels and labels inside metric
 
