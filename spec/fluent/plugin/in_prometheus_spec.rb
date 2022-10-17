@@ -202,7 +202,7 @@ describe Fluent::Plugin::PrometheusInput do
   describe '#run_multi_workers' do
     context '/metrics' do
       Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
-        let(:config) { CONFIG + %[
+        let(:config) { FULL_CONFIG + %[
           port #{port - 2}
         ] }
 

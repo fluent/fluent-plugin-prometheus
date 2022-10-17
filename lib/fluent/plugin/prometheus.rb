@@ -56,6 +56,69 @@ module Fluent
         base_labels
       end
 
+      def self.parse_initlabels_elements(conf, base_labels)
+        base_initlabels = []
+
+        # We first treat the special case of RecordAccessors and Placeholders labels if any declared
+        conf.elements.select { |e| e.name == 'initlabels' }.each { |block|
+          initlabels = {}
+
+          block.each do |key, value|
+            if not base_labels.has_key? key.to_sym
+              raise ConfigError, "Key #{key} in <initlabels> is non existent in <labels> for metric #{conf['name']}"
+            end
+
+            if value.start_with?('$.') || value.start_with?('$[') || value.start_with?('${')
+              raise ConfigError, "Cannot use RecordAccessor or placeholder #{value} (key #{key}) in a <initlabels> in metric #{conf['name']}"
+            end
+
+            base_label_value = base_labels[key.to_sym]
+
+            if !(base_label_value.class == Fluent::PluginHelper::RecordAccessor::Accessor) && ! (base_label_value.start_with?('${') )
+              raise ConfigError, "Cannot set <initlabels> on non RecordAccessor/Placeholder key #{key} (value #{value}) in metric #{conf['name']}"
+            end
+
+            if base_label_value == '${worker_id}' || base_label_value == '${hostname}'
+              raise ConfigError, "Cannot set <initlabels> on reserved placeholder #{base_label_value} for key #{key} in metric #{conf['name']}"
+            end
+            
+            initlabels[key.to_sym] = value
+          end
+
+          # Now adding all labels that are not RecordAccessor nor Placeholder labels as is
+          base_labels.each do |key, value|
+            if base_labels[key.to_sym].class != Fluent::PluginHelper::RecordAccessor::Accessor
+              if value == '${worker_id}'
+                # We retrieve fluentd_worker_id this way to not overcomplicate the code
+                initlabels[key.to_sym] = (ENV['SERVERENGINE_WORKER_ID'] || 0).to_i
+              elsif value == '${hostname}'
+                initlabels[key.to_sym] = Socket.gethostname
+              elsif !(value.start_with?('${'))
+                initlabels[key.to_sym] = value
+              end
+            end
+          end
+
+          base_initlabels << initlabels
+        }
+
+        # Testing for RecordAccessor/Placeholder labels missing a declaration in <initlabels> blocks
+        base_labels.each do |key, value|
+          if value.class == Fluent::PluginHelper::RecordAccessor::Accessor || value.start_with?('${')
+            if not base_initlabels.map(&:keys).flatten.include? (key.to_sym)
+                raise ConfigError, "RecordAccessor/Placeholder key #{key} with value #{value} has not been set in a <initlabels> for initialized metric #{conf['name']}"
+            end
+          end
+        end
+
+        if base_initlabels.length == 0
+          # There were no RecordAccessor nor Placeholder labels, we blunty retrieve the static base_labels
+          base_initlabels << base_labels
+        end
+
+        base_initlabels
+      end
+
       def self.parse_metrics_elements(conf, registry, labels = {})
         metrics = []
         conf.elements.select { |element|
@@ -162,9 +225,27 @@ module Fluent
           @name = element['name']
           @key = element['key']
           @desc = element['desc']
-
+          element['initialized'].nil? ? @initialized = false : @initialized = element['initialized'] == 'true'
+          
           @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(element)
           @base_labels = labels.merge(@base_labels)
+
+          if @initialized
+            @base_initlabels = Fluent::Plugin::Prometheus.parse_initlabels_elements(element, @base_labels)
+          end
+        end
+
+        def self.init_label_set(metric, base_initlabels, base_labels)
+          base_initlabels.each { |initlabels|
+            # Should never happen, but handy test should code evolution break current implementation
+            if initlabels.keys.sort != base_labels.keys.sort
+              raise ConfigError, "initlabels for metric #{metric.name} must have the same signature than labels " \
+                                "(initlabels given: #{initlabels.keys} vs." \
+                                " expected from labels: #{base_labels.keys})"
+            end
+
+            metric.init_label_set(initlabels)
+          }
         end
 
         def labels(record, expander)
@@ -206,6 +287,10 @@ module Fluent
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @gauge = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :gauge, element['desc'])
           end
+
+          if @initialized
+            Fluent::Plugin::Prometheus::Metric.init_label_set(@gauge, @base_initlabels, @base_labels)
+          end
         end
 
         def instrument(record, expander)
@@ -227,6 +312,10 @@ module Fluent
             @counter = registry.counter(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @counter = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :counter, element['desc'])
+          end
+
+          if @initialized
+            Fluent::Plugin::Prometheus::Metric.init_label_set(@counter, @base_initlabels, @base_labels)
           end
         end
 
@@ -258,6 +347,10 @@ module Fluent
             @summary = registry.summary(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @summary = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :summary, element['desc'])
+          end
+
+          if @initialized
+            Fluent::Plugin::Prometheus::Metric.init_label_set(@summary, @base_initlabels, @base_labels)
           end
         end
 
@@ -291,6 +384,10 @@ module Fluent
             end
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @histogram = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])
+          end
+
+          if @initialized
+            Fluent::Plugin::Prometheus::Metric.init_label_set(@histogram, @base_initlabels, @base_labels)
           end
         end
 
