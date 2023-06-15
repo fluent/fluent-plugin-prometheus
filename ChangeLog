@@ -1,3 +1,8 @@
+Release 2.1.0 - 2023/06/15
+
+	* Add `initialized` and `initlabels` parameters to `<metric>` element
+	* in_prometheus_tail_monitor: Add file open/closed/rotation metrics
+
 Release 2.0.3 - 2022/05/06
 
 	* in_prometheus_output_monitor: Fix a bug where output_status_num_errors metric is missing
