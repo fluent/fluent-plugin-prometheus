@@ -15,10 +15,6 @@ jobs:
         os:
           - ubuntu-latest
         experimental: [false]
-        include:
-          - ruby: head
-            os: ubuntu-latest
-            experimental: true
     name: Ruby ${{ matrix.ruby }} unit testing on ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
