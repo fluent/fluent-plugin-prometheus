@@ -77,7 +77,7 @@ module Fluent::Plugin
           :fluentd_output_status_buffer_queue_length,
           'Current length of queue buffers.'),
         buffer_queue_byte_size: get_gauge(
-          :fluentd_output_status_queue_byte_size,
+          :fluentd_output_status_buffer_queue_byte_size,
           'Current total size of queue buffers.'),
         buffer_available_buffer_space_ratios: get_gauge(
           :fluentd_output_status_buffer_available_space_ratio,
