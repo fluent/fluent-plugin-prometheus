@@ -3,6 +3,7 @@ require 'fluent/plugin/prometheus'
 require 'fluent/plugin/prometheus_metrics'
 require 'net/http'
 require 'openssl'
+require 'zlib'
 
 module Fluent::Plugin
   class PrometheusInput < Fluent::Plugin::Input
@@ -32,6 +33,9 @@ module Fluent::Plugin
       config_param :extra_conf, :hash, default: nil, symbolize_keys: true, deprecated: 'See http helper config'
     end
 
+    desc 'Content encoding of the exposed metrics, Currently supported encoding is identity, gzip. Ref: https://prometheus.io/docs/instrumenting/exposition_formats/#basic-info'
+    config_param :content_encoding, :string, default: "identity"
+
     def initialize
       super
       @registry = ::Prometheus::Client.registry
@@ -54,6 +58,8 @@ module Fluent::Plugin
 
       @base_port = @port
       @port += fluentd_worker_id
+
+      raise "Invalid content encoding for the exposed metrics endpoint" unless @content_encoding="identity" || @content_encoding="gzip"
     end
 
     def multi_workers_ready?
@@ -184,7 +190,16 @@ module Fluent::Plugin
     end
 
     def all_metrics
-      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE }, ::Prometheus::Client::Formats::Text.marshal(@registry)]
+      body = nil
+      case @content_encoding
+      when 'gzip'
+        gzip = Zlib::GzipWriter.new(StringIO.new)
+        gzip << ::Prometheus::Client::Formats::Text.marshal(@registry)
+        body = gzip.close.string
+      when 'identity'
+        body = ::Prometheus::Client::Formats::Text.marshal(@registry)
+      end
+      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE, 'Content-Encoding' => @content_encoding }, body]
     rescue => e
       [500, { 'Content-Type' => 'text/plain' }, e.to_s]
     end
@@ -197,8 +212,16 @@ module Fluent::Plugin
           full_result.add_metrics(resp.body)
         end
       end
-
-      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE }, full_result.get_metrics]
+      body = nil
+      case @content_encoding
+      when 'gzip'
+        gzip = Zlib::GzipWriter.new(StringIO.new)
+        gzip << full_result.get_metrics
+        body = gzip.close.string
+      when 'identity'
+        body = full_result.get_metrics
+      end
+      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE, 'Content-Encoding' => @content_encoding }, body]
     rescue => e
       [500, { 'Content-Type' => 'text/plain' }, e.to_s]
     end

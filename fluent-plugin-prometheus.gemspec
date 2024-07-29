@@ -15,6 +15,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "fluentd", ">= 1.9.1", "< 2"
   spec.add_dependency "prometheus-client", ">= 2.1.0"
+  spec.add_dependency "zlib", ">=3.0.0"
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake"
   spec.add_development_dependency "rspec"
