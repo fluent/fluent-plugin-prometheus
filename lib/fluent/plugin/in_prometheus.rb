@@ -34,7 +34,7 @@ module Fluent::Plugin
     end
 
     desc 'Content encoding of the exposed metrics, Currently supported encoding is identity, gzip. Ref: https://prometheus.io/docs/instrumenting/exposition_formats/#basic-info'
-    config_param :content_encoding, :string, default: "identity"
+    config_param :content_encoding, :enum, list: [:identity, :gzip], default: :identity
 
     def initialize
       super
@@ -58,8 +58,6 @@ module Fluent::Plugin
 
       @base_port = @port
       @port += fluentd_worker_id
-
-      raise "Invalid content encoding for the exposed metrics endpoint" unless @content_encoding="identity" || @content_encoding="gzip"
     end
 
     def multi_workers_ready?
@@ -190,16 +188,7 @@ module Fluent::Plugin
     end
 
     def all_metrics
-      body = nil
-      case @content_encoding
-      when 'gzip'
-        gzip = Zlib::GzipWriter.new(StringIO.new)
-        gzip << ::Prometheus::Client::Formats::Text.marshal(@registry)
-        body = gzip.close.string
-      when 'identity'
-        body = ::Prometheus::Client::Formats::Text.marshal(@registry)
-      end
-      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE, 'Content-Encoding' => @content_encoding }, body]
+      response_headers(::Prometheus::Client::Formats::Text.marshal(@registry))
     rescue => e
       [500, { 'Content-Type' => 'text/plain' }, e.to_s]
     end
@@ -212,16 +201,7 @@ module Fluent::Plugin
           full_result.add_metrics(resp.body)
         end
       end
-      body = nil
-      case @content_encoding
-      when 'gzip'
-        gzip = Zlib::GzipWriter.new(StringIO.new)
-        gzip << full_result.get_metrics
-        body = gzip.close.string
-      when 'identity'
-        body = full_result.get_metrics
-      end
-      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE, 'Content-Encoding' => @content_encoding }, body]
+      response_headers(full_result.get_metrics)
     rescue => e
       [500, { 'Content-Type' => 'text/plain' }, e.to_s]
     end
@@ -248,6 +228,19 @@ module Fluent::Plugin
       http.start do
         yield(http)
       end
+    end
+
+    def response_headers(metrics)
+      body = nil
+      case @content_encoding
+      when :gzip
+        gzip = Zlib::GzipWriter.new(StringIO.new)
+        gzip << metrics
+        body = gzip.close.string
+      when :identity
+        body = metrics
+      end
+      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE, 'Content-Encoding' => @content_encoding.to_s }, body]
     end
   end
 end
