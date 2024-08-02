@@ -3,6 +3,7 @@ require 'fluent/plugin/in_prometheus'
 require 'fluent/test/driver/input'
 
 require 'net/http'
+require 'zlib'
 
 describe Fluent::Plugin::PrometheusInput do
   CONFIG = %[
@@ -226,6 +227,7 @@ describe Fluent::Plugin::PrometheusInput do
           registry.counter(:test,docstring: "Testing metrics") unless registry.exist?(:test)
           Net::HTTP.start("127.0.0.1", port) do |http|
             req = Net::HTTP::Get.new("/metrics")
+            req['accept-encoding'] = nil
             res = http.request(req)
             expect(res.body).to include("test Testing metrics")
           end
@@ -243,8 +245,10 @@ describe Fluent::Plugin::PrometheusInput do
           registry.counter(:test,docstring: "Testing metrics") unless registry.exist?(:test)
           Net::HTTP.start("127.0.0.1", port) do |http|
             req = Net::HTTP::Get.new("/metrics")
+            req['accept-encoding'] = nil
             res = http.request(req)
-            expect(res.body).to include("test Testing metrics")
+            gzip = Zlib::GzipReader.new(StringIO.new(res.body.to_s))
+            expect(gzip.read).to include("test Testing metrics")
           end
         end
       end

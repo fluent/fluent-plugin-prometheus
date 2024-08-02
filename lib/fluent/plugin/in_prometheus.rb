@@ -188,7 +188,7 @@ module Fluent::Plugin
     end
 
     def all_metrics
-      response_headers(::Prometheus::Client::Formats::Text.marshal(@registry))
+      response(::Prometheus::Client::Formats::Text.marshal(@registry))
     rescue => e
       [500, { 'Content-Type' => 'text/plain' }, e.to_s]
     end
@@ -201,7 +201,7 @@ module Fluent::Plugin
           full_result.add_metrics(resp.body)
         end
       end
-      response_headers(full_result.get_metrics)
+      response(full_result.get_metrics)
     rescue => e
       [500, { 'Content-Type' => 'text/plain' }, e.to_s]
     end
@@ -230,7 +230,7 @@ module Fluent::Plugin
       end
     end
 
-    def response_headers(metrics)
+    def response(metrics)
       body = nil
       case @content_encoding
       when :gzip
