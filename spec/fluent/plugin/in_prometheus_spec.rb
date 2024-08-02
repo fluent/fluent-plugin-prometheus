@@ -3,6 +3,7 @@ require 'fluent/plugin/in_prometheus'
 require 'fluent/test/driver/input'
 
 require 'net/http'
+require 'zlib'
 
 describe Fluent::Plugin::PrometheusInput do
   CONFIG = %[
@@ -43,6 +44,24 @@ describe Fluent::Plugin::PrometheusInput do
 ] }
       it 'should be configurable' do
         expect(driver.instance.metrics_path).to eq('/_test')
+      end
+    end
+
+    describe 'content_encoding_identity' do
+      let(:config) { CONFIG + %[
+    content_encoding identity
+] }
+      it 'should be configurable' do
+        expect(driver.instance.content_encoding).to eq(:identity)
+      end
+    end
+
+    describe 'content_encoding_gzip' do
+      let(:config) { CONFIG + %[
+    content_encoding gzip
+] }
+      it 'should be configurable' do
+        expect(driver.instance.content_encoding).to eq(:gzip)
       end
     end
   end
@@ -193,6 +212,43 @@ describe Fluent::Plugin::PrometheusInput do
             req = Net::HTTP::Get.new("/foo")
             res = http.request(req)
             expect(res.code).not_to eq('200')
+          end
+        end
+      end
+    end
+
+    context 'response content_encoding identity' do
+      let(:config) { LOCAL_CONFIG + %[
+        content_encoding identity
+  ] }
+      it 'exposes metric' do
+        driver.run(timeout: 1) do
+          registry = driver.instance.instance_variable_get(:@registry)
+          registry.counter(:test,docstring: "Testing metrics") unless registry.exist?(:test)
+          Net::HTTP.start("127.0.0.1", port) do |http|
+            req = Net::HTTP::Get.new("/metrics")
+            req['accept-encoding'] = nil
+            res = http.request(req)
+            expect(res.body).to include("test Testing metrics")
+          end
+        end
+      end
+    end
+
+    context 'response content_encoding gzip' do
+      let(:config) { LOCAL_CONFIG + %[
+        content_encoding gzip
+  ] }
+      it 'exposes metric' do
+        driver.run(timeout: 1) do
+          registry = driver.instance.instance_variable_get(:@registry)
+          registry.counter(:test,docstring: "Testing metrics") unless registry.exist?(:test)
+          Net::HTTP.start("127.0.0.1", port) do |http|
+            req = Net::HTTP::Get.new("/metrics")
+            req['accept-encoding'] = nil
+            res = http.request(req)
+            gzip = Zlib::GzipReader.new(StringIO.new(res.body.to_s))
+            expect(gzip.read).to include("test Testing metrics")
           end
         end
       end
