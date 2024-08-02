@@ -1,3 +1,7 @@
+Release 2.2.0 - 2024/08/02
+
+	* in_prometheus: Add gzip support (Add a new parameter `content_encoding gzip`)
+
 Release 2.1.0 - 2023/06/15
 
 	* Add `initialized` and `initlabels` parameters to `<metric>` element
