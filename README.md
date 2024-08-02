@@ -493,7 +493,7 @@ In this case, `message_foo_counter` has `tag`, `hostname`, `key` and `data_type`
 Checkout repository and setup.
 
 ```
-$ git clone git://github.com/fluent/fluent-plugin-prometheus
+$ git clone git://github.com/fluent/fluent-plugin-prometheus.git
 $ cd fluent-plugin-prometheus
 $ bundle install --path vendor/bundle
 ```
