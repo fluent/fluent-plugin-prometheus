@@ -60,6 +60,9 @@ module Fluent::Plugin
         rotated_file_metrics: get_gauge(
           :fluentd_tail_file_rotated,
           'Number of files rotated.'),
+        throttled_file_metrics: get_gauge(
+          :fluentd_tail_file_throttled,
+          'Number of files throttled.'),
       }
       timer_execute(:in_prometheus_tail_monitor, @interval, &method(:update_monitor_info))
     end
@@ -89,6 +92,7 @@ module Fluent::Plugin
             @metrics[:closed_file_metrics].set(monitor_info.closed.get, labels: label)
             @metrics[:opened_file_metrics].set(monitor_info.opened.get, labels: label)
             @metrics[:rotated_file_metrics].set(monitor_info.rotated.get, labels: label)
+            @metrics[:throttled_file_metrics].set(monitor_info.throttled.get, labels: label)
           end
         end
       end
