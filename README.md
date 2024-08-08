@@ -168,7 +168,7 @@ This plugin uses internal class of Fluentd, so it's easy to break.
 - `fluentd_tail_file_closed`: Number of closed files
 - `fluentd_tail_file_opened`: Number of opened files
 - `fluentd_tail_file_rotated`: Number of rotated files
-- `fluentd_tail_file_throttled`: Number of throttled files
+- `fluentd_tail_file_throttled`: Number of times files got throttled (only with fluentd version > 1.17)
 
 Default labels:
 
