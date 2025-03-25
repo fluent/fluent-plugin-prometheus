@@ -1,3 +1,7 @@
+Release 2.2.1 - 2025/03/24
+
+	* in_prometheus_tail_monitor: Add throttling metrics as `fluentd_tail_file_throttled`. (GitHub#227)
+
 Release 2.2.0 - 2024/08/02
 
 	* in_prometheus: Add gzip support (Add a new parameter `content_encoding gzip`)
