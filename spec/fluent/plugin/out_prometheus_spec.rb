@@ -16,6 +16,10 @@ describe Fluent::Plugin::PrometheusOutput do
     it_behaves_like 'output configuration'
   end
 
+  describe '#testinitlabels' do
+    it_behaves_like 'initalized metrics'
+  end
+  
   describe '#run' do
     let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
 

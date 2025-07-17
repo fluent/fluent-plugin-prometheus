@@ -1,3 +1,16 @@
+Release 2.2.1 - 2025/03/24
+
+	* in_prometheus_tail_monitor: Add throttling metrics as `fluentd_tail_file_throttled`. (GitHub#227)
+
+Release 2.2.0 - 2024/08/02
+
+	* in_prometheus: Add gzip support (Add a new parameter `content_encoding gzip`)
+
+Release 2.1.0 - 2023/06/15
+
+	* Add `initialized` and `initlabels` parameters to `<metric>` element
+	* in_prometheus_tail_monitor: Add file open/closed/rotation metrics
+
 Release 2.0.3 - 2022/05/06
 
 	* in_prometheus_output_monitor: Fix a bug where output_status_num_errors metric is missing

@@ -3,6 +3,7 @@ require 'fluent/plugin/prometheus'
 require 'fluent/plugin/prometheus_metrics'
 require 'net/http'
 require 'openssl'
+require 'zlib'
 
 module Fluent::Plugin
   class PrometheusInput < Fluent::Plugin::Input
@@ -31,6 +32,9 @@ module Fluent::Plugin
       desc 'Additional ssl conf for the server.  Ref: https://github.com/ruby/webrick/blob/master/lib/webrick/ssl.rb'
       config_param :extra_conf, :hash, default: nil, symbolize_keys: true, deprecated: 'See http helper config'
     end
+
+    desc 'Content encoding of the exposed metrics, Currently supported encoding is identity, gzip. Ref: https://prometheus.io/docs/instrumenting/exposition_formats/#basic-info'
+    config_param :content_encoding, :enum, list: [:identity, :gzip], default: :identity
 
     def initialize
       super
@@ -184,7 +188,7 @@ module Fluent::Plugin
     end
 
     def all_metrics
-      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE }, ::Prometheus::Client::Formats::Text.marshal(@registry)]
+      response(::Prometheus::Client::Formats::Text.marshal(@registry))
     rescue => e
       [500, { 'Content-Type' => 'text/plain' }, e.to_s]
     end
@@ -197,8 +201,7 @@ module Fluent::Plugin
           full_result.add_metrics(resp.body)
         end
       end
-
-      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE }, full_result.get_metrics]
+      response(full_result.get_metrics)
     rescue => e
       [500, { 'Content-Type' => 'text/plain' }, e.to_s]
     end
@@ -225,6 +228,19 @@ module Fluent::Plugin
       http.start do
         yield(http)
       end
+    end
+
+    def response(metrics)
+      body = nil
+      case @content_encoding
+      when :gzip
+        gzip = Zlib::GzipWriter.new(StringIO.new)
+        gzip << metrics
+        body = gzip.close.string
+      when :identity
+        body = metrics
+      end
+      [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE, 'Content-Encoding' => @content_encoding.to_s }, body]
     end
   end
 end
