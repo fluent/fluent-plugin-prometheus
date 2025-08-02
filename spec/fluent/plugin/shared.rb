@@ -289,7 +289,12 @@ end
 
 shared_examples_for 'instruments record' do
   before do
-    driver.run(default_tag: tag) { driver.feed(event_time, message) }
+    # Should not shut down driver because it will be used in subsequent tests.
+    driver.run(default_tag: tag, shutdown: false) { driver.feed(event_time, message) }
+  end
+
+  after do
+    driver.instance_shutdown
   end
 
   context 'full config' do
