@@ -7,7 +7,7 @@ module Fluent::Plugin
     include Fluent::Plugin::PrometheusLabelParser
     include Fluent::Plugin::Prometheus
 
-    helpers :thread
+    helpers :timer
 
     def initialize
       super
@@ -26,12 +26,11 @@ module Fluent::Plugin
 
     def start
       super
-      Fluent::Plugin::Prometheus.start_retention_threads(
+      Fluent::Plugin::Prometheus.start_retention_checks(
         @metrics,
         @registry,
-        method(:thread_create),
-        method(:thread_current_running?),
-        @log
+        @log,
+        method(:timer_execute)
       )
     end
 

@@ -145,13 +145,10 @@ module Fluent
         metrics
       end
 
-      def self.start_retention_threads(metrics, registry, thread_create, thread_running, log)
+      def self.start_retention_checks(metrics, registry, log, timer_execute)
         metrics.select { |metric| metric.has_retention? }.each do |metric|
-          thread_create.call("prometheus_retention_#{metric.name}".to_sym) do
-            while thread_running.call()
-              metric.remove_expired_metrics(registry, log)
-              sleep(metric.retention_check_interval)
-            end
+          timer_execute.call("prometheus_retention_#{metric.name}".to_sym, metric.retention_check_interval) do
+            metric.remove_expired_metrics(registry, log)
           end
         end
       end
