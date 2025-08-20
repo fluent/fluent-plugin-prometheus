@@ -39,6 +39,8 @@ module Fluent
         private
 
         def build_tag(tag)
+          return [] if tag.nil?
+
           tags = tag.split('.')
 
           placeholders = { '${tag}' => tag }
