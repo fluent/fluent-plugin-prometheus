@@ -68,7 +68,9 @@ module Fluent::Plugin
       super
 
       scheme = @secure ? 'https' : 'http'
-      log.debug "listening prometheus http server on #{scheme}:://#{@bind}:#{@port}/#{@metrics_path} for worker#{fluentd_worker_id}"
+      # Format bind address properly for URLs (add brackets for IPv6)
+      bind_display = @bind.include?(':') ? "[#{@bind}]" : @bind
+      log.debug "listening prometheus http server on #{scheme}://#{bind_display}:#{@port}/#{@metrics_path} for worker#{fluentd_worker_id}"
 
       proto = @secure ? :tls : :tcp
 
@@ -207,7 +209,16 @@ module Fluent::Plugin
     end
 
     def send_request_to_each_worker
-      bind = (@bind == '0.0.0.0') ? '127.0.0.1' : @bind
+      # Convert bind address to localhost for inter-worker communication
+      # 0.0.0.0 and :: are not connectable, use localhost instead
+      bind = case @bind
+             when '0.0.0.0'
+               '127.0.0.1'
+             when '::'
+               '::1'  # IPv6 localhost
+             else
+               @bind
+             end
       [*(@base_port...(@base_port + @num_workers))].each do |worker_port|
         do_request(host: bind, port: worker_port, secure: @secure) do |http|
           yield(http.get(@metrics_path))
