@@ -67,6 +67,10 @@ module Fluent::Plugin
     def start
       super
 
+      # Normalize bind address: strip brackets if present (for consistency)
+      # Brackets are only for URI formatting, not for socket binding
+      @bind = @bind[1..-2] if @bind.start_with?('[') && @bind.end_with?(']')
+
       scheme = @secure ? 'https' : 'http'
       # Format bind address properly for URLs (add brackets for IPv6)
       bind_display = @bind.include?(':') ? "[#{@bind}]" : @bind
@@ -112,7 +116,11 @@ module Fluent::Plugin
                   ssl_config
                 end
 
-      http_server_create_http_server(:in_prometheus_server, addr: @bind, port: @port, logger: log, proto: proto, tls_opts: tls_opt) do |server|
+      # Pass address with brackets for IPv6 to http_server helper
+      # The http_server helper builds a URI internally and needs proper formatting
+      addr_for_server = @bind.include?(':') ? "[#{@bind}]" : @bind
+      
+      http_server_create_http_server(:in_prometheus_server, addr: addr_for_server, port: @port, logger: log, proto: proto, tls_opts: tls_opt) do |server|
         server.get(@metrics_path) { |_req| all_metrics }
         server.get(@aggregated_metrics_path) { |_req| all_workers_metrics }
       end

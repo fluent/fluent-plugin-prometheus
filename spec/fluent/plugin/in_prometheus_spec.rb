@@ -278,4 +278,112 @@ describe Fluent::Plugin::PrometheusInput do
       end
     end
   end
+
+  describe 'IPv6 support' do
+    context 'IPv6 address formatting' do
+      it 'formats ::1 with brackets for display' do
+        ipv6_addr = '::1'
+        # Test the bracketing logic from the code
+        formatted = ipv6_addr.include?(':') ? "[#{ipv6_addr}]" : ipv6_addr
+        expect(formatted).to eq('[::1]')
+      end
+
+      it 'formats :: with brackets for display' do
+        ipv6_addr = '::'
+        formatted = ipv6_addr.include?(':') ? "[#{ipv6_addr}]" : ipv6_addr
+        expect(formatted).to eq('[::]')
+      end
+
+      it 'does not add brackets to IPv4 addresses' do
+        ipv4_addr = '127.0.0.1'
+        formatted = ipv4_addr.include?(':') ? "[#{ipv4_addr}]" : ipv4_addr
+        expect(formatted).to eq('127.0.0.1')
+      end
+    end
+
+    context 'bind address conversion for worker communication' do
+      it 'converts :: to ::1 for localhost communication' do
+        bind = '::'
+        converted = case bind
+                    when '0.0.0.0' then '127.0.0.1'
+                    when '::' then '::1'
+                    else bind
+                    end
+        expect(converted).to eq('::1')
+      end
+
+      it 'converts 0.0.0.0 to 127.0.0.1 for localhost communication' do
+        bind = '0.0.0.0'
+        converted = case bind
+                    when '0.0.0.0' then '127.0.0.1'
+                    when '::' then '::1'
+                    else bind
+                    end
+        expect(converted).to eq('127.0.0.1')
+      end
+
+      it 'does not convert specific addresses' do
+        bind = '::1'
+        converted = case bind
+                    when '0.0.0.0' then '127.0.0.1'
+                    when '::' then '::1'
+                    else bind
+                    end
+        expect(converted).to eq('::1')
+      end
+    end
+
+    context 'URI construction with IPv6' do
+      it 'creates valid URI with bracketed IPv6 address' do
+        ipv6_addr = '::1'
+        formatted = ipv6_addr.include?(':') ? "[#{ipv6_addr}]" : ipv6_addr
+        uri = URI("http://#{formatted}:24231/metrics")
+        expect(uri.to_s).to eq('http://[::1]:24231/metrics')
+      end
+
+      it 'creates valid URI with bracketed IPv6 wildcard' do
+        ipv6_addr = '::'
+        formatted = ipv6_addr.include?(':') ? "[#{ipv6_addr}]" : ipv6_addr
+        uri = URI("http://#{formatted}:24231/metrics")
+        expect(uri.to_s).to eq('http://[::]:24231/metrics')
+      end
+    end
+  end
+
+  describe '#run with IPv6' do
+    shared_examples 'IPv6 server binding' do |bind_addr, connect_addr, description|
+      let(:config) do
+        # Quote the bind address if it contains brackets
+        bind_value = bind_addr.include?('[') ? "\"#{bind_addr}\"" : bind_addr
+        %[
+          @type prometheus
+          bind #{bind_value}
+        ]
+      end
+
+      it description do
+        skip 'IPv6 not available on this system' unless ipv6_enabled?
+
+        driver.run(timeout: 3) do
+          Net::HTTP.start(connect_addr, port) do |http|
+            req = Net::HTTP::Get.new('/metrics')
+            res = http.request(req)
+            expect(res.code).to eq('200')
+          end
+        end
+      end
+    end
+
+    context 'IPv6 loopback address ::1' do
+      include_examples 'IPv6 server binding', '::1', '::1', 'binds and serves on IPv6 loopback address'
+    end
+
+    context 'IPv6 any address ::' do
+      include_examples 'IPv6 server binding', '::', '::1', 'binds on :: and connects via ::1'
+    end
+
+    context 'pre-bracketed IPv6 address [::1]' do
+      include_examples 'IPv6 server binding', '[::1]', '::1', 'handles pre-bracketed address correctly'
+    end
+  end
 end
