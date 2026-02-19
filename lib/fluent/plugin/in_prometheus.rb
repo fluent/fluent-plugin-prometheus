@@ -78,7 +78,14 @@ module Fluent::Plugin
 
       proto = @secure ? :tls : :tcp
 
-      if @ssl && @ssl['enable'] && @ssl['extra_conf']
+      # IPv6 + TLS combination is not currently supported
+      if @bind.include?(':') && @secure
+        raise Fluent::ConfigError, 'IPv6 with <transport tls> is not currently supported. Use bind 0.0.0.0 with TLS, or bind ::1 without TLS.'
+      end
+
+      # Use webrick for IPv6 or SSL extra_conf
+      # The http_server helper has issues with IPv6 URI construction
+      if (@ssl && @ssl['enable'] && @ssl['extra_conf']) || @bind.include?(':')
         start_webrick
         return
       end
@@ -135,6 +142,7 @@ module Fluent::Plugin
     private
 
     # For compatiblity because http helper can't support extra_conf option
+    # Also used for IPv6 addresses since http helper has IPv6 URI issues
     def start_webrick
       require 'webrick/https'
       require 'webrick'
@@ -146,28 +154,32 @@ module Fluent::Plugin
         Logger: WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
         AccessLog: [],
       }
-      if (@ssl['certificate_path'] && @ssl['private_key_path'].nil?) || (@ssl['certificate_path'].nil? && @ssl['private_key_path'])
-        raise RuntimeError.new("certificate_path and private_key_path most both be defined")
+      
+      # Configure SSL if enabled
+      if @ssl && @ssl['enable']
+        if (@ssl['certificate_path'] && @ssl['private_key_path'].nil?) || (@ssl['certificate_path'].nil? && @ssl['private_key_path'])
+          raise RuntimeError.new("certificate_path and private_key_path most both be defined")
+        end
+
+        ssl_config = {
+          SSLEnable: true,
+          SSLCertName: [['CN', 'nobody'], ['DC', 'example']]
+        }
+
+        if @ssl['certificate_path']
+          cert = OpenSSL::X509::Certificate.new(File.read(@ssl['certificate_path']))
+          ssl_config[:SSLCertificate] = cert
+        end
+
+        if @ssl['private_key_path']
+          key = OpenSSL::PKey.read(@ssl['private_key_path'])
+          ssl_config[:SSLPrivateKey] = key
+        end
+
+        ssl_config[:SSLCACertificateFile] = @ssl['ca_path'] if @ssl['ca_path']
+        ssl_config = ssl_config.merge(@ssl['extra_conf']) if @ssl['extra_conf']
+        config = ssl_config.merge(config)
       end
-
-      ssl_config = {
-        SSLEnable: true,
-        SSLCertName: [['CN', 'nobody'], ['DC', 'example']]
-      }
-
-      if @ssl['certificate_path']
-        cert = OpenSSL::X509::Certificate.new(File.read(@ssl['certificate_path']))
-        ssl_config[:SSLCertificate] = cert
-      end
-
-      if @ssl['private_key_path']
-        key = OpenSSL::PKey.read(@ssl['private_key_path'])
-        ssl_config[:SSLPrivateKey] = key
-      end
-
-      ssl_config[:SSLCACertificateFile] = @ssl['ca_path'] if @ssl['ca_path']
-      ssl_config = ssl_config.merge(@ssl['extra_conf']) if @ssl['extra_conf']
-      config = ssl_config.merge(config)
 
       @log.on_debug do
         @log.debug("WEBrick conf: #{config}")

@@ -89,6 +89,22 @@ describe Fluent::Plugin::PrometheusInput do
       end
     end
 
+    context 'IPv6 with TLS' do
+      let(:config) do
+        %[
+           @type prometheus
+           bind ::1
+           <transport tls>
+             insecure true
+           </transport>
+         ]
+      end
+
+      it 'raises ConfigError for unsupported combination' do
+        expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /IPv6 with <transport tls> is not currently supported/)
+      end
+    end
+
     context 'old parameters are given' do
       context 'when extra_conf is used' do
         let(:config) do
@@ -258,7 +274,7 @@ describe Fluent::Plugin::PrometheusInput do
   describe '#run_multi_workers' do
     context '/metrics' do
       Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
-        let(:config) { FULL_CONFIG + %[
+        let(:config) { LOCAL_CONFIG + %[
           port #{port - 2}
         ] }
 
