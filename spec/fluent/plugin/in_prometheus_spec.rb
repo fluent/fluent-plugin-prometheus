@@ -89,6 +89,22 @@ describe Fluent::Plugin::PrometheusInput do
       end
     end
 
+    context 'IPv6 with TLS' do
+      let(:config) do
+        %[
+           @type prometheus
+           bind ::1
+           <transport tls>
+             insecure true
+           </transport>
+         ]
+      end
+
+      it 'raises ConfigError for unsupported combination' do
+        expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /IPv6 with <transport tls> is not currently supported/)
+      end
+    end
+
     context 'old parameters are given' do
       context 'when extra_conf is used' do
         let(:config) do
@@ -276,6 +292,43 @@ describe Fluent::Plugin::PrometheusInput do
           end
         end
       end
+    end
+  end
+
+  describe '#run with IPv6' do
+    shared_examples 'IPv6 server binding' do |bind_addr, connect_addr, description|
+      let(:config) do
+        # Quote the bind address if it contains brackets
+        bind_value = bind_addr.include?('[') ? "\"#{bind_addr}\"" : bind_addr
+        %[
+          @type prometheus
+          bind #{bind_value}
+        ]
+      end
+
+      it description do
+        skip 'IPv6 not available on this system' unless ipv6_enabled?
+
+        driver.run(timeout: 3) do
+          Net::HTTP.start(connect_addr, port) do |http|
+            req = Net::HTTP::Get.new('/metrics')
+            res = http.request(req)
+            expect(res.code).to eq('200')
+          end
+        end
+      end
+    end
+
+    context 'IPv6 loopback address ::1' do
+      include_examples 'IPv6 server binding', '::1', '::1', 'binds and serves on IPv6 loopback address'
+    end
+
+    context 'IPv6 any address ::' do
+      include_examples 'IPv6 server binding', '::', '::1', 'binds on :: and connects via ::1'
+    end
+
+    context 'pre-bracketed IPv6 address [::1]' do
+      include_examples 'IPv6 server binding', '[::1]', '::1', 'handles pre-bracketed address correctly'
     end
   end
 end

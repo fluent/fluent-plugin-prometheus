@@ -67,12 +67,25 @@ module Fluent::Plugin
     def start
       super
 
+      # Normalize bind address: strip brackets if present (for consistency)
+      # Brackets are only for URI formatting, not for socket binding
+      @bind = @bind[1..-2] if @bind.start_with?('[') && @bind.end_with?(']')
+
       scheme = @secure ? 'https' : 'http'
-      log.debug "listening prometheus http server on #{scheme}:://#{@bind}:#{@port}/#{@metrics_path} for worker#{fluentd_worker_id}"
+      # Format bind address properly for URLs (add brackets for IPv6)
+      bind_display = @bind.include?(':') ? "[#{@bind}]" : @bind
+      log.debug "listening prometheus http server on #{scheme}://#{bind_display}:#{@port}/#{@metrics_path} for worker#{fluentd_worker_id}"
 
       proto = @secure ? :tls : :tcp
 
-      if @ssl && @ssl['enable'] && @ssl['extra_conf']
+      # IPv6 + TLS combination is not currently supported
+      if @bind.include?(':') && @secure
+        raise Fluent::ConfigError, 'IPv6 with <transport tls> is not currently supported. Use bind 0.0.0.0 with TLS, or bind ::1 without TLS.'
+      end
+
+      # Use webrick for IPv6 or SSL extra_conf
+      # The http_server helper has issues with IPv6 URI construction
+      if (@ssl && @ssl['enable'] && @ssl['extra_conf']) || @bind.include?(':')
         start_webrick
         return
       end
@@ -110,6 +123,8 @@ module Fluent::Plugin
                   ssl_config
                 end
 
+      # Use raw bind address for socket binding (no brackets)
+      # Brackets are only for URL/URI formatting, not for bind()
       http_server_create_http_server(:in_prometheus_server, addr: @bind, port: @port, logger: log, proto: proto, tls_opts: tls_opt) do |server|
         server.get(@metrics_path) { |_req| all_metrics }
         server.get(@aggregated_metrics_path) { |_req| all_workers_metrics }
@@ -127,6 +142,7 @@ module Fluent::Plugin
     private
 
     # For compatiblity because http helper can't support extra_conf option
+    # Also used for IPv6 addresses since http helper has IPv6 URI issues
     def start_webrick
       require 'webrick/https'
       require 'webrick'
@@ -138,28 +154,32 @@ module Fluent::Plugin
         Logger: WEBrick::Log.new(STDERR, WEBrick::Log::FATAL),
         AccessLog: [],
       }
-      if (@ssl['certificate_path'] && @ssl['private_key_path'].nil?) || (@ssl['certificate_path'].nil? && @ssl['private_key_path'])
-        raise RuntimeError.new("certificate_path and private_key_path most both be defined")
+      
+      # Configure SSL if enabled
+      if @ssl && @ssl['enable']
+        if (@ssl['certificate_path'] && @ssl['private_key_path'].nil?) || (@ssl['certificate_path'].nil? && @ssl['private_key_path'])
+          raise RuntimeError.new("certificate_path and private_key_path most both be defined")
+        end
+
+        ssl_config = {
+          SSLEnable: true,
+          SSLCertName: [['CN', 'nobody'], ['DC', 'example']]
+        }
+
+        if @ssl['certificate_path']
+          cert = OpenSSL::X509::Certificate.new(File.read(@ssl['certificate_path']))
+          ssl_config[:SSLCertificate] = cert
+        end
+
+        if @ssl['private_key_path']
+          key = OpenSSL::PKey.read(@ssl['private_key_path'])
+          ssl_config[:SSLPrivateKey] = key
+        end
+
+        ssl_config[:SSLCACertificateFile] = @ssl['ca_path'] if @ssl['ca_path']
+        ssl_config = ssl_config.merge(@ssl['extra_conf']) if @ssl['extra_conf']
+        config = ssl_config.merge(config)
       end
-
-      ssl_config = {
-        SSLEnable: true,
-        SSLCertName: [['CN', 'nobody'], ['DC', 'example']]
-      }
-
-      if @ssl['certificate_path']
-        cert = OpenSSL::X509::Certificate.new(File.read(@ssl['certificate_path']))
-        ssl_config[:SSLCertificate] = cert
-      end
-
-      if @ssl['private_key_path']
-        key = OpenSSL::PKey.read(@ssl['private_key_path'])
-        ssl_config[:SSLPrivateKey] = key
-      end
-
-      ssl_config[:SSLCACertificateFile] = @ssl['ca_path'] if @ssl['ca_path']
-      ssl_config = ssl_config.merge(@ssl['extra_conf']) if @ssl['extra_conf']
-      config = ssl_config.merge(config)
 
       @log.on_debug do
         @log.debug("WEBrick conf: #{config}")
@@ -207,7 +227,16 @@ module Fluent::Plugin
     end
 
     def send_request_to_each_worker
-      bind = (@bind == '0.0.0.0') ? '127.0.0.1' : @bind
+      # Convert bind address to localhost for inter-worker communication
+      # 0.0.0.0 and :: are not connectable, use localhost instead
+      bind = case @bind
+             when '0.0.0.0'
+               '127.0.0.1'
+             when '::'
+               '::1'  # IPv6 localhost
+             else
+               @bind
+             end
       [*(@base_port...(@base_port + @num_workers))].each do |worker_port|
         do_request(host: bind, port: worker_port, secure: @secure) do |http|
           yield(http.get(@metrics_path))
