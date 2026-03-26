@@ -1,6 +1,6 @@
 # fluent-plugin-prometheus, a plugin for [Fluentd](https://www.fluentd.org)
 
-[![Build Status](https://travis-ci.org/fluent/fluent-plugin-prometheus.svg?branch=master)](https://travis-ci.org/fluent/fluent-plugin-prometheus)
+[![linux](https://github.com/fluent/fluent-plugin-prometheus/actions/workflows/linux.yml/badge.svg)](https://github.com/fluent/fluent-plugin-prometheus/actions/workflows/linux.yml)
 
 A fluent plugin that instruments metrics from records and exposes them via web interface. Intended to be used together with a [Prometheus server](https://github.com/prometheus/prometheus).
 
