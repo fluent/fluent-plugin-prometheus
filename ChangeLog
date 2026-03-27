@@ -1,3 +1,7 @@
+Release 2.2.2 - 2026/03/27
+
+	* in_prometheus: fix: Add IPv6 support for bind parameter (#240)
+
 Release 2.2.1 - 2025/03/24
 
 	* in_prometheus_tail_monitor: Add throttling metrics as `fluentd_tail_file_throttled`. (GitHub#227)
