@@ -41,6 +41,7 @@ body:
         - Fluentd version:
         - TD Agent version:
         - fluent-plugin-prometheus version:
+        - prometheus-client version:
         - Operating system:
         - Kernel version:
       render: markdown
