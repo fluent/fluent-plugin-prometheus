@@ -39,7 +39,7 @@ body:
         Tip: If you hit the problem with older fluentd version, try latest version first.
       value: |
         - Fluentd version:
-        - TD Agent version:
+        - TD Agent/Fluent Package version:
         - fluent-plugin-prometheus version:
         - prometheus-client version:
         - Operating system:
