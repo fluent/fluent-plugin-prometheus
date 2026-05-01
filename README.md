@@ -290,6 +290,8 @@ For details of each metric type, see [Prometheus documentation](http://prometheu
 - `desc`: description of this metric (required)
 - `key`: key name of record for instrumentation (**optional**)
 - `initialized`: boolean controlling initilization of metric (**optional**). See [Metric initialization](#metric-initialization)
+- `retention`: time in seconds to remove a metric after not being updated (optional). See [Retention](#retention)
+- `retention_check_interval`: time in seconds to check for expired metrics (optional). Has no effect when `retention` not set. See [Retention](#retention)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 - `<initlabels>`: labels to use for initialization of ReccordAccessors/Placeholder labels (**optional**). See [Metric initialization](#metric-initialization)
 
@@ -316,6 +318,8 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
 - `initialized`: boolean controlling initilization of metric (**optional**). See [Metric initialization](#metric-initialization)
+- `retention`: time in seconds to remove a metric after not being updated (optional). See [Retention](#retention)
+- `retention_check_interval`: time in seconds to check for expired metrics (optional). Has no effect when `retention` not set. See [Retention](#retention)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 - `<initlabels>`: labels to use for initialization of ReccordAccessors/Placeholder labels (**optional**). See [Metric initialization](#metric-initialization)
 
@@ -340,6 +344,8 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `desc`: description of metric (required)
 - `key`: key name of record for instrumentation (required)
 - `initialized`: boolean controlling initilization of metric (**optional**). See [Metric initialization](#metric-initialization)
+- `retention`: time in seconds to remove a metric after not being updated (optional). See [Retention](#retention)
+- `retention_check_interval`: time in seconds to check for expired metrics (optional). Has no effect when `retention` not set. See [Retention](#retention)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 - `<initlabels>`: labels to use for initialization of ReccordAccessors/Placeholder labels (**optional**). See [Metric initialization](#metric-initialization)
 
@@ -366,6 +372,8 @@ If key is empty, the metric values is treated as 1, so the counter increments by
 - `key`: key name of record for instrumentation (required)
 - `initialized`: boolean controlling initilization of metric (**optional**). See [Metric initialization](#metric-initialization)
 - `buckets`: buckets of record for instrumentation (optional)
+- `retention`: time in seconds to remove a metric after not being updated (optional). See [Retention](#retention)
+- `retention_check_interval`: time in seconds to check for expired metrics (optional). Has no effect when `retention` not set. See [Retention](#retention)
 - `<labels>`: additional labels for this metric (optional). See [Labels](#labels)
 - `<initlabels>`: labels to use for initialization of ReccordAccessors/Placeholder labels (**optional**). See [Metric initialization](#metric-initialization)
 
@@ -488,6 +496,33 @@ Prometheus output/filter plugin can have multiple metric section. Top-level labe
 
 In this case, `message_foo_counter` has `tag`, `hostname`, `key` and `data_type` labels.
 
+## Retention
+
+By default metrics with all encountered label combinations are preserved until the next restart of fluentd.
+Even if a label combination did not receive any update for a long time.
+That behavior is not always desirable e.g. when the contents of of fields change for good and the metric becomes idle.
+For these metrics you can set `retention`  and `retention_check_interval` like this:
+
+```
+<metric>
+  name message_foo_counter
+  type counter
+  desc The total number of foo in message.
+  key foo
+  retention 3600 # 1h
+  retention_check_interval 1800 # 30m
+  <labels>
+    bar ${bar}
+  </labels>
+</metric>
+```
+
+If `${bar}` was `baz` one time but after that no records with that value were processed, then after one hour the metric
+`foo{bar="baz"}` might be removed. 
+When this actually happens depends on `retention_check_interval` (default 60).
+It causes a background thread to check every 30 minutes for expired metrics.
+So worst case the metrics are removed 30 minutes after expiration.
+You can set this value as low as `1`, but that may put more stress on your CPU.
 
 ## Try plugin with nginx
 
