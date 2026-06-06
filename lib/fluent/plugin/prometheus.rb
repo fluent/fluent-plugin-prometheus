@@ -1,6 +1,7 @@
 require 'prometheus/client'
 require 'prometheus/client/formats/text'
 require 'fluent/plugin/prometheus/placeholder_expander'
+require 'fluent/plugin/prometheus/data_store'
 
 module Fluent
   module Plugin
@@ -144,6 +145,14 @@ module Fluent
         metrics
       end
 
+      def self.start_retention_checks(metrics, registry, log, timer_execute)
+        metrics.select { |metric| metric.has_retention? }.each do |metric|
+          timer_execute.call("prometheus_retention_#{metric.name}".to_sym, metric.retention_check_interval) do
+            metric.remove_expired_metrics(registry, log)
+          end
+        end
+      end
+
       def self.placeholder_expander(log)
         Fluent::Plugin::Prometheus::ExpandBuilder.new(log: log)
       end
@@ -158,6 +167,11 @@ module Fluent
                           end
           [k.to_s, value_or_hash]
         end.to_h
+      end
+
+      def initialize
+        super
+        ::Prometheus::Client.config.data_store = Fluent::Plugin::Prometheus::DataStore.new
       end
 
       def configure(conf)
@@ -214,6 +228,8 @@ module Fluent
         attr_reader :name
         attr_reader :key
         attr_reader :desc
+        attr_reader :retention
+        attr_reader :retention_check_interval
 
         def initialize(element, registry, labels)
           ['name', 'desc'].each do |key|
@@ -226,7 +242,12 @@ module Fluent
           @key = element['key']
           @desc = element['desc']
           element['initialized'].nil? ? @initialized = false : @initialized = element['initialized'] == 'true'
-          
+          @retention = element['retention'].to_i
+          @retention_check_interval = element.fetch('retention_check_interval', 60).to_i
+          if has_retention?
+            @last_modified_store = LastModifiedStore.new
+          end
+
           @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(element)
           @base_labels = labels.merge(@base_labels)
 
@@ -273,6 +294,74 @@ module Fluent
 
           metric
         end
+
+        def set_value?(value)
+          if value
+            return true
+          end
+          false
+        end
+
+        def instrument(record, expander)
+          value = self.value(record)
+          if self.set_value?(value)
+            labels = labels(record, expander)
+            set_value(value, labels)
+            if has_retention?
+              @last_modified_store.set_last_updated(labels)
+            end
+          end
+        end
+
+        def has_retention?
+          @retention > 0
+        end
+
+        def remove_expired_metrics(registry, log)
+          if has_retention?
+            metric = registry.get(@name)
+
+            expiration_time = Time.now - @retention
+            expired_label_sets = @last_modified_store.get_labels_not_modified_since(expiration_time)
+
+            expired_label_sets.each { |expired_label_set|
+              log.debug "Metric #{@name} with labels #{expired_label_set} expired. Removing..."
+              metric.remove(expired_label_set) # this method is supplied by the require at the top of this method
+              @last_modified_store.remove(expired_label_set)
+            }
+          else
+            log.warn('remove_expired_metrics should not be called when retention is not set for this metric!')
+          end
+        end
+
+        class LastModifiedStore
+          def initialize
+            @internal_store = Hash.new
+            @lock = Monitor.new
+          end
+
+          def synchronize
+            @lock.synchronize { yield }
+          end
+
+          def set_last_updated(labels)
+            synchronize do
+              @internal_store[labels] = Time.now
+            end
+          end
+
+          def remove(labels)
+            synchronize do
+              @internal_store.delete(labels)
+            end
+          end
+
+          def get_labels_not_modified_since(time)
+            synchronize do
+              @internal_store.select { |k, v| v < time }.keys
+            end
+          end
+        end
       end
 
       class Gauge < Metric
@@ -293,15 +382,16 @@ module Fluent
           end
         end
 
-        def instrument(record, expander)
+        def value(record)
           if @key.is_a?(String)
-            value = record[@key]
+            record[@key]
           else
-            value = @key.call(record)
+            @key.call(record)
           end
-          if value
-            @gauge.set(value, labels: labels(record, expander))
-          end
+        end
+
+        def set_value(value, labels)
+          @gauge.set(value, labels: labels)
         end
       end
 
@@ -319,20 +409,22 @@ module Fluent
           end
         end
 
-        def instrument(record, expander)
-          # use record value of the key if key is specified, otherwise just increment
+        def value(record)
           if @key.nil?
-            value = 1
+            1
           elsif @key.is_a?(String)
-            value = record[@key]
+            record[@key]
           else
-            value = @key.call(record)
+            @key.call(record)
           end
+        end
 
-          # ignore if record value is nil
-          return if value.nil?
+        def set_value?(value)
+          !value.nil?
+        end
 
-          @counter.increment(by: value, labels: labels(record, expander))
+        def set_value(value, labels)
+          @counter.increment(by: value, labels: labels)
         end
       end
 
@@ -354,15 +446,16 @@ module Fluent
           end
         end
 
-        def instrument(record, expander)
+        def value(record)
           if @key.is_a?(String)
-            value = record[@key]
+            record[@key]
           else
-            value = @key.call(record)
+            @key.call(record)
           end
-          if value
-            @summary.observe(value, labels: labels(record, expander))
-          end
+        end
+
+        def set_value(value, labels)
+          @summary.observe(value, labels: labels)
         end
       end
 
@@ -391,15 +484,16 @@ module Fluent
           end
         end
 
-        def instrument(record, expander)
+        def value(record)
           if @key.is_a?(String)
-            value = record[@key]
+            record[@key]
           else
-            value = @key.call(record)
+            @key.call(record)
           end
-          if value
-            @histogram.observe(value, labels: labels(record, expander))
-          end
+        end
+
+        def set_value(value, labels)
+          @histogram.observe(value, labels: labels)
         end
       end
     end
