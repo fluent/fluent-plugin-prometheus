@@ -36,10 +36,15 @@ module Fluent::Plugin
     desc 'Content encoding of the exposed metrics, Currently supported encoding is identity, gzip. Ref: https://prometheus.io/docs/instrumenting/exposition_formats/#basic-info'
     config_param :content_encoding, :enum, list: [:identity, :gzip], default: :identity
 
+    desc 'Suppress repeated error logs in a certain period of time (1h) or until message was changed'
+    config_param :ignore_error_log_interval, :time, default: 3600
+
     def initialize
       super
       @registry = ::Prometheus::Client.registry
       @secure = nil
+      @error_log_mutex = Mutex.new
+      @last_error_logs = {} # scope => [logged_at, fingerprint, suppressed_count]
     end
 
     def configure(conf)
@@ -210,7 +215,7 @@ module Fluent::Plugin
     def all_metrics
       response(::Prometheus::Client::Formats::Text.marshal(@registry))
     rescue => e
-      log.error "in_prometheus: failed to render metrics", error_class: e.class, error: e
+      log_error_throttled(:metrics, "in_prometheus: failed to render metrics", error: e)
       [500, { 'Content-Type' => 'text/plain' }, "in_prometheus server error: <#{e.class}>"]
     end
 
@@ -224,7 +229,7 @@ module Fluent::Plugin
       end
       response(full_result.get_metrics)
     rescue => e
-      log.error "in_prometheus: failed to render workers metrics", error_class: e.class, error: e
+      log_error_throttled(:workers_metrics, "in_prometheus: failed to render workers metrics", error: e)
       [500, { 'Content-Type' => 'text/plain' }, "in_prometheus server error: <#{e.class}>"]
     end
 
@@ -272,6 +277,33 @@ module Fluent::Plugin
         body = metrics
       end
       [200, { 'Content-Type' => ::Prometheus::Client::Formats::Text::CONTENT_TYPE, 'Content-Encoding' => @content_encoding.to_s }, body]
+    end
+
+    def log_error_throttled(scope, message, error:)
+      fingerprint = [error.class, error.message]
+      suppressed = 0
+
+      emit = @error_log_mutex.synchronize do
+        last = @last_error_logs[scope]
+        now = Fluent::Clock.now
+        if last.nil? ||
+           last[1] != fingerprint ||
+           (now - last[0]) >= @ignore_error_log_interval
+          suppressed = last && last[1] == fingerprint ? last[2] : 0
+          @last_error_logs[scope] = [now, fingerprint, 0]
+          true
+        else
+          last[2] += 1
+          false
+        end
+      end
+      return unless emit
+
+      if suppressed > 0
+        log.error message, error_class: error.class, error: error, suppressed_log_count: suppressed
+      else
+        log.error message, error_class: error.class, error: error
+      end
     end
   end
 end

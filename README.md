@@ -64,6 +64,7 @@ More configuration parameters:
 - `metrics_path`: metrics HTTP endpoint (default: /metrics)
 - `aggregated_metrics_path`: metrics HTTP endpoint (default: /aggregated_metrics)
 - `content_encoding`: encoding format for the exposed metrics (default: identity). Supported formats are {identity, gzip}
+- `ignore_error_log_interval`: Suppress repeated error logs in a certain period of time or until message was changed (default: 1h)
 
 When using multiple workers, each worker binds to port + `fluent_worker_id`.
 To scrape metrics from all workers at once, you can access http://localhost:24231/aggregated_metrics.
