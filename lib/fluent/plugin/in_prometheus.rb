@@ -210,7 +210,8 @@ module Fluent::Plugin
     def all_metrics
       response(::Prometheus::Client::Formats::Text.marshal(@registry))
     rescue => e
-      [500, { 'Content-Type' => 'text/plain' }, e.to_s]
+      log.error "in_prometheus: failed to render metrics", error_class: e.class, error: e
+      [500, { 'Content-Type' => 'text/plain' }, "in_prometheus server error: <#{e.class}>"]
     end
 
     def all_workers_metrics
@@ -223,7 +224,8 @@ module Fluent::Plugin
       end
       response(full_result.get_metrics)
     rescue => e
-      [500, { 'Content-Type' => 'text/plain' }, e.to_s]
+      log.error "in_prometheus: failed to render workers metrics", error_class: e.class, error: e
+      [500, { 'Content-Type' => 'text/plain' }, "in_prometheus server error: <#{e.class}>"]
     end
 
     def send_request_to_each_worker

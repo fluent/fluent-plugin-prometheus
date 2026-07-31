@@ -338,4 +338,71 @@ describe Fluent::Plugin::PrometheusInput do
       include_examples 'IPv6 server binding', '[::1]', '::1', 'handles pre-bracketed address correctly'
     end
   end
+
+  describe 'error handling (information disclosure)' do
+    let(:config) { LOCAL_CONFIG }
+    let(:secret_message) { 'dummy secret detail: password=deadbeef' }
+
+    shared_examples 'suppressed exception response' do
+      it 'returns 500 with text/plain' do
+        status, header, _body = subject
+        expect(status).to eq(500)
+        expect(header['Content-Type']).to eq('text/plain')
+      end
+
+      it 'exposes the exception class only' do
+        _status, _header, body = subject
+        expect(body).to eq('in_prometheus server error: <RuntimeError>')
+        expect(body).not_to include(secret_message)
+      end
+
+      it 'logs the detail on the server side' do
+        subject
+        expect(driver.logs.any? { |log| log.include?(log_message) }).to be true
+        expect(driver.logs.any? { |log| log.include?(secret_message) }).to be true
+      end
+    end
+
+    context '#all_metrics' do
+      subject { driver.instance.send(:all_metrics) }
+
+      let(:log_message) { 'in_prometheus: failed to render metrics' }
+
+      before do
+        allow(::Prometheus::Client::Formats::Text).to receive(:marshal).and_raise(RuntimeError, secret_message)
+      end
+
+      include_examples 'suppressed exception response'
+    end
+
+    context '#all_workers_metrics' do
+      subject { driver.instance.send(:all_workers_metrics) }
+
+      let(:log_message) { 'in_prometheus: failed to render workers metrics' }
+
+      before do
+        allow(driver.instance).to receive(:send_request_to_each_worker).and_raise(RuntimeError, secret_message)
+      end
+
+      include_examples 'suppressed exception response'
+    end
+
+    context 'over HTTP' do
+      before do
+        allow(::Prometheus::Client::Formats::Text).to receive(:marshal).and_raise(RuntimeError, secret_message)
+      end
+
+      it 'does not leak the exception message to the client' do
+        driver.run(timeout: 1) do
+          Net::HTTP.start('127.0.0.1', port) do |http|
+            req = Net::HTTP::Get.new('/metrics')
+            res = http.request(req)
+            expect(res.code).to eq('500')
+            expect(res.body).to eq('in_prometheus server error: <RuntimeError>')
+            expect(res.body).not_to include(secret_message)
+          end
+        end
+      end
+    end
+  end
 end
