@@ -22,9 +22,16 @@ describe Fluent::Plugin::PrometheusInput do
   describe '#configure' do
     describe 'bind' do
       let(:config) { CONFIG + %[
-  bind 127.0.0.1
+  bind ::1
 ] }
       it 'should be configurable' do
+        expect(driver.instance.bind).to eq('::1')
+      end
+    end
+
+    describe 'default bind' do
+      let(:config) { CONFIG }
+      it 'should be accessible from 127.0.0.1 by default' do
         expect(driver.instance.bind).to eq('127.0.0.1')
       end
     end
