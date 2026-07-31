@@ -59,7 +59,7 @@ With following configuration, you can access http://localhost:24231/metrics on a
 
 More configuration parameters:
 
-- `bind`: binding interface (default: '0.0.0.0')
+- `bind`: binding interface (default: '127.0.0.1')
 - `port`: listen port (default: 24231)
 - `metrics_path`: metrics HTTP endpoint (default: /metrics)
 - `aggregated_metrics_path`: metrics HTTP endpoint (default: /aggregated_metrics)

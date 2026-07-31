@@ -11,7 +11,7 @@ module Fluent::Plugin
 
     helpers :thread, :http_server
 
-    config_param :bind, :string, default: '0.0.0.0'
+    config_param :bind, :string, default: '127.0.0.1'
     config_param :port, :integer, default: 24231
     config_param :metrics_path, :string, default: '/metrics'
     config_param :aggregated_metrics_path, :string, default: '/aggregated_metrics'
