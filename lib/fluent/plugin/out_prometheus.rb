@@ -7,6 +7,11 @@ module Fluent::Plugin
     include Fluent::Plugin::PrometheusLabelParser
     include Fluent::Plugin::Prometheus
 
+    # a record which cannot be instrumented is emitted as an error event, the
+    # same way as filter_prometheus does. Filter gets its router from the
+    # plugin base, while Output has to ask for the helper.
+    helpers :event_emitter
+
     def initialize
       super
       @registry = ::Prometheus::Client.registry

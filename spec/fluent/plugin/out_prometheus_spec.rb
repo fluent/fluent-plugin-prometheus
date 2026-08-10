@@ -19,6 +19,10 @@ describe Fluent::Plugin::PrometheusOutput do
   describe '#testinitlabels' do
     it_behaves_like 'initalized metrics'
   end
+
+  describe 'limiting label expansion' do
+    it_behaves_like 'limits label expansion'
+  end
   
   describe '#run' do
     let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
