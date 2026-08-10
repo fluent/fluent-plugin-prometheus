@@ -266,6 +266,95 @@ You can access nested keys in records via dot or bracket notation (https://docs.
 
 See Supported Metric Type and Labels for more configuration parameters.
 
+#### Limiting label expansion
+
+Label values come from records, so a metric can grow unboundedly when a label
+is bound to a field with many distinct values. Both plugins can limit it:
+
+|parameter|description|default|
+|---|---|---|
+|max_label_value_length|The maximum length of a label value. A longer value is truncated. `0` means unlimited.|0|
+|max_series_per_metric|The maximum number of label sets a metric can hold. A label set beyond the limit is dropped, while the label sets already known keep being instrumented. `0` means unlimited.|0|
+|ignore_error_log_interval|The interval in seconds to suppress the repeated warning about the dropped label sets. `0` logs every occurrence.|3600|
+
+**Both limits are disabled by default and must be enabled explicitly.** They
+change what a metric exposes, so turning them on is a decision for the operator
+who knows the records:
+
+* `max_label_value_length` truncates a label value, which merges label sets
+  that differ only after the limit into a single series. Their values are
+  summed from then on, and the series which existed before disappear. Values
+  above a few hundred characters are not exotic: URLs, Kubernetes annotations
+  and SQL statements routinely exceed them.
+* `max_series_per_metric` drops a record whose label set is new once the limit
+  is reached. The record is lost and cannot be recovered.
+
+```
+<filter message>
+  @type prometheus
+  max_label_value_length 128
+  max_series_per_metric 1000
+  <metric>
+    name message_foo_counter
+    type counter
+    desc The total number of foo in message.
+    key foo
+    <labels>
+      path $.kubernetes.pod_name
+    </labels>
+  </metric>
+</filter>
+```
+
+Both limits can also be set in a `<metric>` section, which overrides the value
+given to the plugin. A metric whose labels are known to be bounded can stay
+unlimited with `0` while the plugin limits the others, and a metric which
+expands faster than the others can be limited on its own:
+
+```
+<filter message>
+  @type prometheus
+  max_series_per_metric 1000
+  <metric>
+    name message_foo_counter
+    type counter
+    desc The total number of foo in message.
+    key foo
+    max_series_per_metric 10
+    <labels>
+      path $.kubernetes.pod_name
+    </labels>
+  </metric>
+</filter>
+```
+
+Note that the number of label sets is counted per metric of each plugin
+instance. When two plugin instances instrument the same metric name, each of
+them has its own limit.
+
+A label set consumes `max_series_per_metric` from the moment the metric is
+about to be instrumented, so that two records which expand a metric at the same
+time cannot both pass the limit. A record which fails to be instrumented, for
+example when the value of `key` is not a number, gives its slot back, unless
+another record gave the very same label set to the metric in the meantime.
+
+##### Observing the dropped label sets
+
+A dropped label set is not routed to `@ERROR`, because dropping it is what the
+configuration asks for. It is reported in two ways instead:
+
+* a warning in the Fluentd log, suppressed for `ignore_error_log_interval`
+  seconds per metric and reporting how many warnings were suppressed in the
+  meantime.
+* a counter named `fluentd_prometheus_dropped_label_sets_total`, labelled with
+  the metric `name`. It is registered on the first drop, so it does not show up
+  as long as nothing is dropped. Alert on it to notice that a metric is losing
+  records:
+
+```
+rate(fluentd_prometheus_dropped_label_sets_total[5m]) > 0
+```
+
 ## Supported Metric Types
 
 For details of each metric type, see [Prometheus documentation](http://prometheus.io/docs/concepts/metric_types/). Also see [metric name guide](http://prometheus.io/docs/practices/naming/).
