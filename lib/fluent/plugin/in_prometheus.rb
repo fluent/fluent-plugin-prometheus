@@ -43,8 +43,7 @@ module Fluent::Plugin
       super
       @registry = ::Prometheus::Client.registry
       @secure = nil
-      @error_log_mutex = Mutex.new
-      @last_error_logs = {} # scope => [logged_at, fingerprint, suppressed_count]
+      @error_log_throttle = nil
     end
 
     def configure(conf)
@@ -63,6 +62,8 @@ module Fluent::Plugin
 
       @base_port = @port
       @port += fluentd_worker_id
+
+      @error_log_throttle = Fluent::Plugin::Prometheus::LogThrottle.new(@ignore_error_log_interval)
     end
 
     def multi_workers_ready?
@@ -281,22 +282,7 @@ module Fluent::Plugin
 
     def log_error_throttled(scope, message, error:)
       fingerprint = [error.class, error.message]
-      suppressed = 0
-
-      emit = @error_log_mutex.synchronize do
-        last = @last_error_logs[scope]
-        now = Fluent::Clock.now
-        if last.nil? ||
-           last[1] != fingerprint ||
-           (now - last[0]) >= @ignore_error_log_interval
-          suppressed = last && last[1] == fingerprint ? last[2] : 0
-          @last_error_logs[scope] = [now, fingerprint, 0]
-          true
-        else
-          last[2] += 1
-          false
-        end
-      end
+      emit, suppressed = @error_log_throttle.check(scope, fingerprint)
       return unless emit
 
       if suppressed > 0
