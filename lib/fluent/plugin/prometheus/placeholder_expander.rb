@@ -2,6 +2,10 @@ module Fluent
   module Plugin
     module Prometheus
       class ExpandBuilder
+        # ${tag}, ${tag_parts[...]}, ${tag_prefix[...]} and ${tag_suffix[...]}
+        # must be built from the tag only.
+        TAG_DERIVED_PLACEHOLDER = /\A\$\{tag(_parts|_prefix|_suffix)?(\[[^\]]*\])?\}\z/.freeze
+
         def self.build(placeholder, log:)
           new(log: log).build(placeholder)
         end
@@ -12,6 +16,7 @@ module Fluent
 
         def build(placeholder_values)
           placeholders = {}
+          tag_placeholders = {}
           placeholder_values.each do |key, value|
             case value
             when Array
@@ -26,12 +31,21 @@ module Fluent
               end
             else
               if key == 'tag'
-                placeholders.merge!(build_tag(value))
+                tag_placeholders = build_tag(value)
               else
                 placeholders["${#{key}}"] = value
               end
             end
           end
+
+          # A record may have an array named "tag_parts", or a key named
+          # "tag_parts[0]". Both make the same placeholder as the tag does.
+          # merge! is not enough here, because a record can also use an index
+          # which build_tag does not make, such as ${tag_parts[3]} for a tag
+          # of 3 parts, or ${tag_prefix[-1]}. So remove them first, then such
+          # a placeholder stays unknown.
+          placeholders.delete_if { |k, _| TAG_DERIVED_PLACEHOLDER.match?(k) }
+          placeholders.merge!(tag_placeholders)
 
           Fluent::Plugin::Prometheus::ExpandBuilder::PlaceholderExpander.new(@log, placeholders)
         end

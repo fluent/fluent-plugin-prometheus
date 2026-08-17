@@ -50,6 +50,94 @@ describe Fluent::Plugin::Prometheus::ExpandBuilder::PlaceholderExpander do
         expander.expand('${hostname}')
       end
 
+      # tag_parts, tag_prefix and tag_suffix must be expanded with the tag,
+      # not with "forged"
+      context 'with a value named after a tag placeholder' do
+        let(:forged_placeholder) do
+          {
+            'tag' => '1.2.3',
+            'tag_parts' => %w[forged forged forged],
+            'tag_prefix' => %w[forged forged forged],
+            'tag_suffix' => %w[forged forged forged],
+          }
+        end
+
+        it 'expands the placeholders with the tag' do
+          expander = builder.build(forged_placeholder)
+
+          expect(expander.expand('${tag_parts[0]}.${tag_parts[1]}.${tag_parts[2]}')).to eq('1.2.3')
+          expect(expander.expand('${tag_parts[-3]}.${tag_parts[-2]}.${tag_parts[-1]}')).to eq('1.2.3')
+          expect(expander.expand('${tag_prefix[0]},${tag_prefix[1]},${tag_prefix[2]}')).to eq('1,1.2,1.2.3')
+          expect(expander.expand('${tag_suffix[0]},${tag_suffix[1]},${tag_suffix[2]}')).to eq('3,2.3,1.2.3')
+        end
+
+        it 'does not expand an index which the tag does not have' do
+          # tag_prefix and tag_suffix have no negative index, so they are kept
+          # as they are. This checks that the record does not fill them.
+          expander = builder.build(forged_placeholder)
+
+          expect(expander.expand('${tag_prefix[-1]}')).to eq('${tag_prefix[-1]}')
+          expect(expander.expand('${tag_suffix[-1]}')).to eq('${tag_suffix[-1]}')
+
+          # the tag has 3 parts, so the 4th value of the record is out of it.
+          longer = forged_placeholder.merge('tag_parts' => %w[forged forged forged forged])
+          expander = builder.build(longer)
+
+          expect(expander.expand('${tag_parts[3]}')).to eq('${tag_parts[3]}')
+          expect(expander.expand('${tag_parts[-4]}')).to eq('${tag_parts[-4]}')
+        end
+      end
+
+      # a record may also have a key named "tag_parts[0]", which makes the
+      # same placeholder as the tag
+      context 'with a value whose key is a tag placeholder' do
+        it 'expands the placeholders with the tag' do
+          spelled = {
+            'tag' => '1.2.3',
+            'tag_parts[0]' => 'forged',
+            'tag_prefix[0]' => 'forged',
+            'tag_suffix[0]' => 'forged',
+          }
+          expander = builder.build(spelled)
+
+          expect(expander.expand('${tag_parts[0]}')).to eq('1')
+          expect(expander.expand('${tag_prefix[0]}')).to eq('1')
+          expect(expander.expand('${tag_suffix[0]}')).to eq('3')
+        end
+
+        it 'does not expand an index which the tag does not have' do
+          spelled = {
+            'tag' => '1',
+            'tag_parts[1]' => 'forged',
+            'tag_parts[-2]' => 'forged',
+            'tag_prefix[-1]' => 'forged',
+            'tag_suffix[-1]' => 'forged',
+          }
+          expander = builder.build(spelled)
+
+          expect(expander.expand('${tag_parts[1]}')).to eq('${tag_parts[1]}')
+          expect(expander.expand('${tag_parts[-2]}')).to eq('${tag_parts[-2]}')
+          expect(expander.expand('${tag_prefix[-1]}')).to eq('${tag_prefix[-1]}')
+          expect(expander.expand('${tag_suffix[-1]}')).to eq('${tag_suffix[-1]}')
+        end
+
+        it 'keeps the tag itself' do
+          spelled = {
+            'tag' => '1.2.3',
+            'tag_parts' => 'forged',
+            'tag_prefix' => 'forged',
+            'tag_suffix' => 'forged',
+          }
+          expander = builder.build(spelled)
+
+          expect(expander.expand('${tag}')).to eq('1.2.3')
+          # these are not built from the tag, so they are kept as they are
+          expect(expander.expand('${tag_parts}')).to eq('${tag_parts}')
+          expect(expander.expand('${tag_prefix}')).to eq('${tag_prefix}')
+          expect(expander.expand('${tag_suffix}')).to eq('${tag_suffix}')
+        end
+      end
+
       context 'when not found placeholder' do
         it 'prints wanring log and as it is' do
           expect(log).to receive(:warn).with('unknown placeholder `${tag_prefix[100]}` found').once
@@ -85,6 +173,14 @@ describe Fluent::Plugin::Prometheus::ExpandBuilder::PlaceholderExpander do
         expect(expander.expand('${tag_parts[-3]}.${tag_parts[-2]}.${tag_parts[-1]}', dynamic_placeholders: dynamic_placeholder)).to eq('1.2.3')
         expect(expander.expand('${tag_prefix[0]}.${tag_prefix[1]}.${tag_prefix[2]}', dynamic_placeholders: dynamic_placeholder)).to eq('1.1.2.1.2.3')
         expect(expander.expand('${tag_suffix[0]}.${tag_suffix[1]}.${tag_suffix[2]}', dynamic_placeholders: dynamic_placeholder)).to eq('3.2.3.1.2.3')
+      end
+
+      it 'expands the placeholders with the dynamic tag' do
+        forged = static_placeholder.merge('tag_parts' => %w[forged forged forged])
+        expander = builder.build(forged)
+
+        expect(expander.expand('${tag_parts[0]}.${tag_parts[1]}.${tag_parts[2]}',
+                               dynamic_placeholders: dynamic_placeholder)).to eq('1.2.3')
       end
 
       it 'does not create expander twice if given the same placeholder' do
