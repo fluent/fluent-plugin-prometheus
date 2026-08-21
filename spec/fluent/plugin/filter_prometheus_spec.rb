@@ -45,4 +45,73 @@ describe Fluent::Plugin::PrometheusFilter do
 
     it_behaves_like 'instruments record'
   end
+
+  # a label which uses the tag must be expanded with the tag, not with the
+  # record.
+  describe 'a record which has a tag placeholder name' do
+    let(:config) {
+      BASE_CONFIG + %(
+        <metric>
+          name tagged
+          type counter
+          desc Something foo.
+          key foo
+          <labels>
+            part ${tag_parts[0]}
+          </labels>
+        </metric>
+      )
+    }
+
+    it 'labels the metric with the tag' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'tag' => 'forged.tag', 'foo' => 1, 'tag_parts' => ['forged']})
+      end
+      # even though tag_parts exists in the record, it should not be taken as "part".
+      expect(registry.get(:tagged).values.keys).to eq([{part: 'prometheus'}])
+    end
+
+    it 'labels the metric with the tag, not with the record key' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'tag' => 'forged.tag', 'foo' => 1, 'tag_parts[0]' => 'forged'})
+      end
+      # the record has a key named "tag_parts[0]", but the tag must win.
+      expect(registry.get(:tagged).values.keys).to eq([{part: 'prometheus'}])
+    end
+  end
+
+  # a record must not fill an index which the tag does not have.
+  describe 'a record which uses an index out of the tag' do
+    let(:config) {
+      BASE_CONFIG + %(
+        <metric>
+          name out_of_range
+          type counter
+          desc Something foo.
+          key foo
+          <labels>
+            part ${tag_parts[2]}
+            prefix ${tag_prefix[-1]}
+            suffix ${tag_suffix[-1]}
+          </labels>
+        </metric>
+      )
+    }
+
+    it 'leaves the label unexpanded' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {
+                      'foo' => 1,
+                      'tag_parts[2]' => 'forged',
+                      'tag_prefix[-1]' => 'forged',
+                      'tag_suffix[-1]' => 'forged',
+                    })
+      end
+      # the tag "prometheus.test" has 2 parts, and tag_prefix and tag_suffix
+      # have no negative index. So these labels must not be expanded.
+      expect(registry.get(:out_of_range).values.keys).to eq(
+        [{part: '${tag_parts[2]}', prefix: '${tag_prefix[-1]}', suffix: '${tag_suffix[-1]}'}]
+      )
+    end
+  end
 end
