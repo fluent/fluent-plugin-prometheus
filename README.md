@@ -275,7 +275,7 @@ is bound to a field with many distinct values. Both plugins can limit it:
 |---|---|---|
 |max_label_value_length|The maximum length of a label value. A longer value is truncated. `0` means unlimited.|0|
 |max_series_per_metric|The maximum number of label sets a metric can hold. A label set beyond the limit is dropped, while the label sets already known keep being instrumented. `0` means unlimited.|0|
-|ignore_error_log_interval|The interval in seconds to suppress the repeated warning about the dropped label sets. `0` logs every occurrence.|3600|
+|ignore_error_log_interval|The interval in seconds to suppress the repeated warning about the drops and the truncations. `0` logs every occurrence.|3600|
 
 **Both limits are disabled by default and must be enabled explicitly.** They
 change what a metric exposes, so turning them on is a decision for the operator
@@ -338,22 +338,41 @@ time cannot both pass the limit. A record which fails to be instrumented, for
 example when the value of `key` is not a number, gives its slot back, unless
 another record gave the very same label set to the metric in the meantime.
 
-##### Observing the dropped label sets
+A pre-initialized label set (`initialized` and `<initlabels>`) is truncated by
+`max_label_value_length` as well, and consumes `max_series_per_metric` from the
+start. A record which expands to it then lands on that very series, instead of
+creating a second one under the truncated value.
 
-A dropped label set is not routed to `@ERROR`, because dropping it is what the
-configuration asks for. It is reported in two ways instead:
+##### Observing what the limits leave out
+
+A dropped label set and a truncated label value are not routed to `@ERROR`,
+because both are what the configuration asks for. They are reported in two ways
+instead:
 
 * a warning in the Fluentd log, suppressed for `ignore_error_log_interval`
-  seconds per metric and reporting how many warnings were suppressed in the
-  meantime.
-* a counter named `fluentd_prometheus_dropped_label_sets_total`, labelled with
-  the metric `name`. It is registered on the first drop, so it does not show up
-  as long as nothing is dropped. Alert on it to notice that a metric is losing
-  records:
+  seconds and reporting how many warnings were suppressed in the meantime. A
+  drop is throttled per metric, a truncation per label of a metric.
+* a counter, which is what makes the loss visible in Prometheus itself. Both
+  are registered on their first occurrence, so they do not show up as long as
+  nothing is dropped or truncated:
+
+|metric|labels|meaning|
+|---|---|---|
+|fluentd_prometheus_dropped_label_sets_total|`name`|A record was not instrumented, because the metric `name` reached `max_series_per_metric`.|
+|fluentd_prometheus_truncated_label_values_total|`name`, `label`|A record was instrumented under a shortened value of `label`, because it exceeded `max_label_value_length`. This is how many records went into a merged series.|
+
+Their labels come from the configuration and not from a record, so these
+counters cannot expand on their own. Alert on them to notice that a metric is
+losing records or merging series:
 
 ```
 rate(fluentd_prometheus_dropped_label_sets_total[5m]) > 0
+rate(fluentd_prometheus_truncated_label_values_total[5m]) > 0
 ```
+
+A truncation counter which keeps growing means that `max_label_value_length` is
+shorter than what the records carry: the metric is still exported, but its
+series no longer tell those records apart.
 
 ## Supported Metric Types
 

@@ -49,22 +49,29 @@ module Fluent
       DROPPED_LABEL_SETS_METRIC_NAME = :fluentd_prometheus_dropped_label_sets_total
       DROPPED_LABEL_SETS_METRIC_DESC = 'The total number of label sets dropped because the metric reached max_series_per_metric.'
 
+      # Counts the label values truncated by max_label_value_length, for the
+      # same reason: truncating merges label sets which were distinct, and the
+      # merged series looks like any other one.
+      TRUNCATED_LABEL_VALUES_METRIC_NAME = :fluentd_prometheus_truncated_label_values_total
+      TRUNCATED_LABEL_VALUES_METRIC_DESC = 'The total number of label values truncated because they exceeded max_label_value_length.'
+
       def self.included(klass)
         klass.class_eval do
           desc 'The maximum length of a label value. Longer values are truncated. 0 (default) means unlimited.'
           config_param :max_label_value_length, :integer, default: DEFAULT_MAX_LABEL_VALUE_LENGTH
           desc 'The maximum number of label sets a metric can hold. Exceeding label sets are dropped. 0 (default) means unlimited.'
           config_param :max_series_per_metric, :integer, default: DEFAULT_MAX_SERIES_PER_METRIC
-          desc 'The interval to suppress the repeated same error log.'
+          desc 'The interval to suppress the repeated warning about the drops and the truncations.'
           config_param :ignore_error_log_interval, :time, default: DEFAULT_IGNORE_ERROR_LOG_INTERVAL
         end
       end
 
       # Suppresses the repeated log for the same key within the interval.
-      # Shared by filter/out_prometheus (keyed by metric name) and in_prometheus
-      # (keyed by an error scope). Each plugin owns its own instance, since the
-      # lifetime differs; only the implementation is shared. The granularity is
-      # absorbed by the key, and an optional fingerprint lets a caller emit
+      # Shared by filter/out_prometheus and in_prometheus. Each plugin owns its
+      # own instance, since the lifetime differs; only the implementation is
+      # shared. The granularity is absorbed by the key, which a caller builds
+      # out of what it throttles on: a metric, a metric and one of its labels,
+      # or an error scope. An optional fingerprint lets a caller emit
       # immediately when the content changes (e.g. a different error).
       class LogThrottle
         Entry = Struct.new(:time, :fingerprint, :suppressed)
@@ -72,7 +79,7 @@ module Fluent
         def initialize(interval)
           @interval = interval
           @mutex = Mutex.new
-          # bounded by the number of keys (metrics / scopes), so it never grows
+          # bounded by the number of keys a caller can build, so it never grows
           # unexpectedly
           @entries = {}
         end
@@ -233,48 +240,74 @@ module Fluent
         @placeholder_expander_builder = Fluent::Plugin::Prometheus.placeholder_expander(log)
         @hostname = Socket.gethostname
         @label_set_limit_log_throttle = Fluent::Plugin::Prometheus::LogThrottle.new(@ignore_error_log_interval)
+        @label_value_truncated_log_throttle = Fluent::Plugin::Prometheus::LogThrottle.new(@ignore_error_log_interval)
         @dropped_label_sets_counter = nil
+        @truncated_label_values_counter = nil
       end
 
       def metric_options
         {
           max_label_value_length: @max_label_value_length,
           max_series_per_metric: @max_series_per_metric,
+          # a metric does not know its plugin, so it reports a truncation here
+          on_label_value_truncated: method(:warn_label_value_truncated),
         }
       end
 
-      # Registered on the first drop only, so that a plugin which never drops a
-      # label set does not expose a metric which stays 0 forever. Its only label
-      # is the metric name, which comes from the configuration and not from a
-      # record, so this metric cannot blow up the cardinality by itself.
+      # Registered on the first occurrence only, so that a plugin which never
+      # drops or truncates anything does not expose a counter which stays 0
+      # forever. Their labels come from the configuration and not from a
+      # record, so they cannot blow up the cardinality themselves.
+      def limit_counter(name, docstring, labels)
+        @registry.counter(name, docstring: docstring, labels: labels)
+      rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
+        # another plugin instance shares the registry and registered it first
+        Fluent::Plugin::Prometheus::Metric.get(@registry, name, :counter, docstring)
+      end
+
       def dropped_label_sets_counter
         @dropped_label_sets_counter ||=
-          begin
-            @registry.counter(DROPPED_LABEL_SETS_METRIC_NAME,
-                              docstring: DROPPED_LABEL_SETS_METRIC_DESC,
-                              labels: [:name])
-          rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
-            # another plugin instance shares the registry and registered it first
-            Fluent::Plugin::Prometheus::Metric.get(@registry, DROPPED_LABEL_SETS_METRIC_NAME,
-                                                   :counter, DROPPED_LABEL_SETS_METRIC_DESC)
-          end
+          limit_counter(DROPPED_LABEL_SETS_METRIC_NAME, DROPPED_LABEL_SETS_METRIC_DESC, [:name])
+      end
+
+      def truncated_label_values_counter
+        @truncated_label_values_counter ||=
+          limit_counter(TRUNCATED_LABEL_VALUES_METRIC_NAME, TRUNCATED_LABEL_VALUES_METRIC_DESC, [:name, :label])
       end
 
       def warn_label_set_limit(metric)
         # the drop is always counted, while the log below is throttled
         dropped_label_sets_counter.increment(labels: { name: metric.name.to_s })
 
-        emit, suppressed = @label_set_limit_log_throttle.check(metric.name)
+        warn_throttled(@label_set_limit_log_throttle, metric.name,
+                       "prometheus: dropped a label set because the metric reached max_series_per_metric.",
+                       name: metric.name, max_series_per_metric: metric.max_series_per_metric)
+      end
+
+      # Called by a metric which truncated a label value. This is not an error
+      # either: the record is still instrumented. It is reported because the
+      # label sets which differ only after the limit become a single series,
+      # and nothing else shows that.
+      def warn_label_value_truncated(metric, label_key)
+        truncated_label_values_counter.increment(labels: { name: metric.name.to_s, label: label_key.to_s })
+
+        # the label is part of the key, so that a label truncated once in a
+        # while is not hidden by one truncated constantly
+        warn_throttled(@label_value_truncated_log_throttle, [metric.name, label_key],
+                       "prometheus: truncated a label value because it exceeded max_label_value_length.",
+                       name: metric.name, label: label_key,
+                       max_label_value_length: metric.max_label_value_length)
+      end
+
+      # The counters above are never throttled, only the log which comes with
+      # them: one line per record would flood the Fluentd log, and the count is
+      # in Prometheus already.
+      def warn_throttled(throttle, key, message, **details)
+        emit, suppressed = throttle.check(key)
         return unless emit
 
-        if suppressed > 0
-          log.warn "prometheus: dropped a label set because the metric reached max_series_per_metric.",
-                   name: metric.name, max_series_per_metric: metric.max_series_per_metric,
-                   suppressed_log_count: suppressed
-        else
-          log.warn "prometheus: dropped a label set because the metric reached max_series_per_metric.",
-                   name: metric.name, max_series_per_metric: metric.max_series_per_metric
-        end
+        details = details.merge(suppressed_log_count: suppressed) if suppressed > 0
+        log.warn(message, details)
       end
 
       def instrument_single(tag, time, record, metrics)
@@ -348,18 +381,25 @@ module Fluent
           @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(element)
           @base_labels = labels.merge(@base_labels)
 
-          # <metric> can narrow down the limits given by the plugin
+          # <metric> overrides the limits given by the plugin
           @max_label_value_length = metric_limit(element, 'max_label_value_length',
                                                  opts.fetch(:max_label_value_length, DEFAULT_MAX_LABEL_VALUE_LENGTH))
           @max_series_per_metric = metric_limit(element, 'max_series_per_metric',
                                                 opts.fetch(:max_series_per_metric, DEFAULT_MAX_SERIES_PER_METRIC))
+          @on_label_value_truncated = opts[:on_label_value_truncated]
           @series = {}
           @series_mutex = Mutex.new
 
           if @initialized
+            # A pre-initialized label set is given to the client as is, so it
+            # has to be truncated like the label sets built from records.
+            # Otherwise the client would hold the long value, a record
+            # expanding to the same label set would land on a second series,
+            # and the metric would grow past max_series_per_metric.
             @base_initlabels = Fluent::Plugin::Prometheus.parse_initlabels_elements(element, @base_labels)
-            # the pre-initialized label sets consume the limit as well, and the
-            # client already holds them, so they are established right away
+                                                         .map { |initlabels| truncate_label_set(initlabels) }
+            # the client holds them from now on, so they consume the limit as
+            # well and are established right away
             @base_initlabels.each do |initlabels|
               @series[normalize_label_set(initlabels)] = :confirmed
             end
@@ -383,9 +423,9 @@ module Fluent
           label = {}
           @base_labels.each do |k, v|
             if v.is_a?(String)
-              label[k] = truncate_label_value(expander.expand(v))
+              label[k] = truncate_label_value(expander.expand(v), k)
             else
-              label[k] = truncate_label_value(v.call(record))
+              label[k] = truncate_label_value(v.call(record), k)
             end
           end
           label
@@ -446,14 +486,32 @@ module Fluent
           end
         end
 
-        def truncate_label_value(value)
+        # A truncation is reported with the label it happened on, so that an
+        # operator knows which label merges its label sets. A caller omits the
+        # key to truncate quietly: the pre-initialized label sets below come
+        # from the configuration and not from a record, so they merge nothing
+        # an operator can act on.
+        def truncate_label_value(value, key = nil)
           # a RecordAccessor may return a value which is not a String
           value = value.to_s unless value.is_a?(String)
           return value if @max_label_value_length <= 0
+          return value if value.length <= @max_label_value_length
 
-          value.length > @max_label_value_length ? value[0, @max_label_value_length] : value
+          @on_label_value_truncated.call(self, key) if key && @on_label_value_truncated
+          value[0, @max_label_value_length]
         end
 
+        # Truncates a label set which is given to the client as is, keeping the
+        # type of its values: a pre-initialized label set may hold a non-String
+        # value (${worker_id}), which the client has always been given as such.
+        def truncate_label_set(label)
+          label.each_with_object({}) do |(k, v), truncated|
+            truncated[k] = v.is_a?(String) ? truncate_label_value(v) : v
+          end
+        end
+
+        # Same, for a label set kept in @series, whose values are always
+        # Strings: the ones built from records go through to_s.
         def normalize_label_set(label)
           label.each_with_object({}) do |(k, v), normalized|
             normalized[k] = truncate_label_value(v)
