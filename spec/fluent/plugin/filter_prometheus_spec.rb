@@ -120,8 +120,9 @@ describe Fluent::Plugin::PrometheusFilter do
   end
 
   # the throttling itself is covered by the LogThrottle spec; what is left here
-  # is the warning warn_label_set_limit builds out of it
-  describe 'label set limit log throttling' do
+  # is the warnings warn_label_set_limit and warn_label_value_truncated build
+  # out of it
+  describe 'limit log throttling' do
     let(:config) {
       BASE_CONFIG + %[
         ignore_error_log_interval 3600
@@ -135,29 +136,77 @@ describe Fluent::Plugin::PrometheusFilter do
     }
     # Fluent::Clock.now is monotonic, so a plain Hash is enough to drive it
     let(:clock) { { now: 1000.0 } }
-    let(:metric) { double('metric', name: :throttled, max_series_per_metric: 5) }
+    let(:metric) { double('metric', name: :throttled, max_series_per_metric: 5, max_label_value_length: 4) }
 
     before do
       allow(Fluent::Clock).to receive(:now) { clock[:now] }
     end
 
-    def drop_logs
-      driver.logs.select { |log| log.include?('dropped a label set') }
+    def logs_about(text)
+      driver.logs.select { |log| log.include?(text) }
     end
 
-    it 'warns only once within ignore_error_log_interval' do
-      5.times { driver.instance.send(:warn_label_set_limit, metric) }
-      expect(drop_logs.size).to eq(1)
-    end
-
-    it 'reports how many warnings were suppressed in the meantime' do
-      3.times { driver.instance.send(:warn_label_set_limit, metric) }
-      clock[:now] += driver.instance.ignore_error_log_interval
+    def drop
       driver.instance.send(:warn_label_set_limit, metric)
-      logs = drop_logs
-      expect(logs.size).to eq(2)
-      expect(logs.first).not_to include('suppressed_log_count')
-      expect(logs.last).to include('suppressed_log_count=2')
+    end
+
+    def truncate(label_key = :path)
+      driver.instance.send(:warn_label_value_truncated, metric, label_key)
+    end
+
+    shared_examples_for 'a throttled warning' do
+      it 'warns only once within ignore_error_log_interval' do
+        5.times { warn_once }
+        expect(logs_about(text).size).to eq(1)
+      end
+
+      it 'reports how many warnings were suppressed in the meantime' do
+        3.times { warn_once }
+        clock[:now] += driver.instance.ignore_error_log_interval
+        warn_once
+        logs = logs_about(text)
+        expect(logs.size).to eq(2)
+        expect(logs.first).not_to include('suppressed_log_count')
+        expect(logs.last).to include('suppressed_log_count=2')
+      end
+    end
+
+    describe 'about a dropped label set' do
+      let(:text) { 'dropped a label set' }
+      def warn_once
+        drop
+      end
+
+      it_behaves_like 'a throttled warning'
+    end
+
+    describe 'about a truncated label value' do
+      let(:text) { 'truncated a label value' }
+      def warn_once
+        truncate
+      end
+
+      it_behaves_like 'a throttled warning'
+
+      it 'names the label it truncated' do
+        truncate
+        expect(logs_about(text).first).to include('label=:path')
+      end
+
+      # a label truncated once in a while must not be hidden by one truncated
+      # constantly
+      it 'keeps a separate slot per label' do
+        truncate(:path)
+        truncate(:host)
+        expect(logs_about(text).size).to eq(2)
+      end
+    end
+
+    it 'throttles the two warnings independently' do
+      drop
+      truncate
+      expect(logs_about('dropped a label set').size).to eq(1)
+      expect(logs_about('truncated a label value').size).to eq(1)
     end
   end
 end

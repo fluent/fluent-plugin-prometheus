@@ -412,8 +412,16 @@ shared_examples_for 'limits label expansion' do
     driver.logs.select { |log| log.include?('dropped a label set') }
   end
 
+  def truncation_logs
+    driver.logs.select { |log| log.include?('truncated a label value') }
+  end
+
   def dropped_label_sets
     registry.metrics.find { |metric| metric.name == :fluentd_prometheus_dropped_label_sets_total }
+  end
+
+  def truncated_label_values
+    registry.metrics.find { |metric| metric.name == :fluentd_prometheus_truncated_label_values_total }
   end
 
   let(:counter) { registry.get(:limited) }
@@ -437,8 +445,10 @@ shared_examples_for 'limits label expansion' do
 
       expect(counter.values.keys).to eq([{path: '/a'}, {path: '/b'}, {path: long_value}])
       expect(drop_logs).to be_empty
-      # nothing was dropped, so the counter is not even registered
+      expect(truncation_logs).to be_empty
+      # nothing was dropped or truncated, so the counters are not even registered
       expect(dropped_label_sets).to be_nil
+      expect(truncated_label_values).to be_nil
     end
   end
 
@@ -470,6 +480,26 @@ shared_examples_for 'limits label expansion' do
       end
 
       expect(counter.values.keys).to eq([{path: '/ab'}])
+    end
+
+    it 'counts every truncated label value, while the log is throttled' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'foo' => 1, 'path' => '/abcdefg'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/abcxyz'})
+      end
+
+      # two records, one series: this is what the counter makes visible
+      expect(truncated_label_values.values).to eq({{name: 'limited', label: 'path'} => 2.0})
+      expect(truncation_logs.size).to eq(1)
+    end
+
+    it 'reports nothing when the label value fits in the limit' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'foo' => 1, 'path' => '/ab'})
+      end
+
+      expect(truncated_label_values).to be_nil
+      expect(truncation_logs).to be_empty
     end
   end
 
