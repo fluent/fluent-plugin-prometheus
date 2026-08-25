@@ -334,6 +334,11 @@ share one count. Each of them refuses a new label set once that shared count
 reaches its own limit, so a section which leaves `max_series_per_metric` at `0`
 adds label sets without counting them.
 
+Those sections have to set the same `max_label_value_length` though, because it
+decides which label set the metric is given: a shorter and a longer limit would
+put one label value into two label sets, once cut at each limit. A section which
+sets a different one is refused at startup.
+
 A metric with `initialized true` creates its `<initlabels>` label sets at
 startup, so they count towards `max_series_per_metric` before any record
 arrives. When the limit is smaller than the number of `<initlabels>` label sets,

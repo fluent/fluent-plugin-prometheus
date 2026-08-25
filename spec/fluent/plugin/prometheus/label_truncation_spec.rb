@@ -78,6 +78,44 @@ describe Fluent::Plugin::Prometheus::Metric do
     end
   end
 
+  describe 'a metric name shared by two <metric> sections' do
+    def build_metric(length)
+      element = Fluent::Config::Element.new(
+        'metric', '',
+        {
+          'name' => 'truncated',
+          'type' => 'counter',
+          'desc' => 'Something foo.',
+          'key' => 'foo',
+          'max_label_value_length' => length.to_s,
+        },
+        [Fluent::Config::Element.new('labels', '', {'path' => '$.path'}, [])]
+      )
+      Fluent::Plugin::Prometheus::Counter.new(element, registry, {}, opts)
+    end
+
+    it 'accepts the same max_label_value_length twice' do
+      build_metric(4)
+
+      expect { build_metric(4) }.not_to raise_error
+    end
+
+    # cutting '/abcdefg' at 4 and at 8 would give the metric both '/abc' and
+    # '/abcdefg', two label sets for one label value
+    it 'refuses a second max_label_value_length' do
+      build_metric(4)
+
+      expect { build_metric(8) }.to raise_error(Fluent::ConfigError,
+                                                /max_label_value_length 4 already.*gives 8/)
+    end
+
+    it 'refuses a section which turns the truncation off' do
+      build_metric(4)
+
+      expect { build_metric(0) }.to raise_error(Fluent::ConfigError)
+    end
+  end
+
   # They are given to the client as is, so they have to be truncated like the
   # label sets built from records. They come from the configuration though, so
   # the truncation is not reported: nothing an operator can act on is merged.

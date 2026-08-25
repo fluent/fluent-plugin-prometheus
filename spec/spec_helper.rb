@@ -9,6 +9,13 @@ Test::Unit::AutoRunner.need_auto_run = false
 Fluent::Test.setup
 include Fluent::Test::Helpers
 
+RSpec.configure do |config|
+  # The plugins keep the truncation length of every metric in the VariableStore,
+  # which lives as long as the process. Each example builds its own registry, so
+  # the store has to start empty as well.
+  config.before { Fluent::VariableStore.try_to_reset {} }
+end
+
 def ipv6_enabled?
   require 'socket'
 

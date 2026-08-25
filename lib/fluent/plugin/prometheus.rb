@@ -1,6 +1,7 @@
 require 'prometheus/client'
 require 'prometheus/client/formats/text'
 require 'fluent/clock'
+require 'fluent/variable_store'
 require 'fluent/plugin/prometheus/placeholder_expander'
 
 module Fluent
@@ -54,6 +55,18 @@ module Fluent
       # merged series looks like any other one.
       TRUNCATED_LABEL_VALUES_METRIC_NAME = :fluentd_prometheus_truncated_label_values_total
       TRUNCATED_LABEL_VALUES_METRIC_DESC = 'The total number of label values truncated because they exceeded max_label_value_length.'
+
+      # The truncation length every metric was configured with, so that two
+      # <metric> sections which instrument the same metric cannot truncate
+      # differently. It is kept in the VariableStore and not next to the metric,
+      # because the store is emptied for the duration of a graceful reload and
+      # put back when the reload fails. A length which outlived the reload would
+      # refuse the new one.
+      LABEL_VALUE_LENGTHS = :fluent_plugin_prometheus_label_value_lengths
+
+      def self.label_value_lengths
+        Fluent::VariableStore.fetch_or_build(LABEL_VALUE_LENGTHS)
+      end
 
       def self.included(klass)
         klass.class_eval do
@@ -449,6 +462,7 @@ module Fluent
                                                  opts.fetch(:max_label_value_length, DEFAULT_MAX_LABEL_VALUE_LENGTH))
           @max_series_per_metric = metric_limit(element, 'max_series_per_metric',
                                                 opts.fetch(:max_series_per_metric, DEFAULT_MAX_SERIES_PER_METRIC))
+          check_label_value_length!
           @on_label_value_truncated = opts[:on_label_value_truncated]
 
           if @initialized
@@ -554,6 +568,26 @@ module Fluent
             end
             check_initlabels_fit_series_limit!
           end
+        end
+
+        # Sections which instrument the same metric have to truncate the same
+        # way. A shorter and a longer limit turn one label value into two label
+        # sets, so the metric would hold the same value twice, once cut at each
+        # limit. max_series_per_metric stays per section instead, since it only
+        # decides whether a label set is accepted, not what it looks like.
+        def check_label_value_length!
+          lengths = Fluent::Plugin::Prometheus.label_value_lengths
+          length = lengths[@name]
+          if length.nil?
+            lengths[@name] = @max_label_value_length
+            return
+          end
+          return if length == @max_label_value_length
+
+          raise ConfigError, "metric #{@name} is instrumented with " \
+                             "max_label_value_length #{length} already, but this <metric> " \
+                             "gives #{@max_label_value_length}: one label value would end up " \
+                             "in two label sets"
         end
 
         def check_initlabels_fit_series_limit!
