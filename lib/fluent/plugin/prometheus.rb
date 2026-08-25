@@ -403,6 +403,7 @@ module Fluent
             @base_initlabels.each do |initlabels|
               @series[normalize_label_set(initlabels)] = :confirmed
             end
+            check_initlabels_fit_series_limit!
           end
         end
 
@@ -484,6 +485,17 @@ module Fluent
           rescue ArgumentError, TypeError
             raise ConfigError, "#{name} in <metric> must be an integer: #{element[name]}"
           end
+        end
+
+        def check_initlabels_fit_series_limit!
+          return if @max_series_per_metric <= 0
+          # two <initlabels> blocks with the same values make one label set, so
+          # count the label sets and not the blocks
+          return if @series.size <= @max_series_per_metric
+
+          raise ConfigError, "metric #{@name} has #{@series.size} <initlabels> label sets, " \
+                             "but max_series_per_metric is #{@max_series_per_metric}: " \
+                             "no record could ever be counted"
         end
 
         # A truncation is reported with the label it happened on, so that an

@@ -332,6 +332,13 @@ Note that the number of label sets is counted per metric of each plugin
 instance. When two plugin instances instrument the same metric name, each of
 them has its own limit.
 
+A metric with `initialized true` creates its `<initlabels>` label sets at
+startup, so they count towards `max_series_per_metric` before any record
+arrives. When the limit is smaller than the number of `<initlabels>` label sets,
+no record can ever be counted, so the plugin stops at startup with a
+configuration error instead of dropping every record. A limit equal to that
+number is fine: it means every label set of the metric is known in advance.
+
 A label set consumes `max_series_per_metric` from the moment the metric is
 about to be instrumented, so that two records which expand a metric at the same
 time cannot both pass the limit. A record which fails to be instrumented, for

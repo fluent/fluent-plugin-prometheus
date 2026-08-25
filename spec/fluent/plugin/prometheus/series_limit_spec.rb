@@ -169,6 +169,74 @@ describe Fluent::Plugin::Prometheus::Metric do
     end
   end
 
+  describe 'initialized true with <initlabels>' do
+    let(:initlabels) { ['/a', '/b', '/c'] }
+    let(:element) do
+      Fluent::Config::Element.new(
+        'metric', '',
+        {
+          'name' => 'limited',
+          'type' => 'counter',
+          'desc' => 'Something foo.',
+          'key' => 'foo',
+          'initialized' => 'true',
+          'max_series_per_metric' => max_series_per_metric.to_s,
+        },
+        [Fluent::Config::Element.new('labels', '', {'path' => '$.path'}, [])] +
+          initlabels.map { |path| Fluent::Config::Element.new('initlabels', '', {'path' => path}, []) }
+      )
+    end
+
+    context 'with a limit below the number of <initlabels> label sets' do
+      # 3 label sets exist at startup, so a limit of 1 would drop every record
+      let(:max_series_per_metric) { 1 }
+
+      it 'stops at startup instead of dropping every record' do
+        expect { metric }.to raise_error(Fluent::ConfigError,
+                                         /has 3 <initlabels> label sets.*max_series_per_metric is 1/)
+      end
+    end
+
+    context 'with a limit equal to the number of <initlabels> label sets' do
+      # every label set is known in advance, which is what <initlabels> is for:
+      # the limit is reached but no record is dropped
+      let(:max_series_per_metric) { 3 }
+
+      it 'accepts the config' do
+        expect { metric }.not_to raise_error
+      end
+
+      it 'still counts a record on an <initlabels> label set' do
+        instrument('/a')
+
+        expect(client_counter.values[{path: '/a'}]).to eq(1)
+      end
+
+      it 'refuses a label set which is not in <initlabels>' do
+        expect { instrument('/d') }.to raise_error(Fluent::Plugin::Prometheus::LabelSetLimitError)
+      end
+    end
+
+    context 'with two <initlabels> holding the same values' do
+      # both make the same label set, so they take one slot
+      let(:initlabels) { ['/a', '/a'] }
+      let(:max_series_per_metric) { 1 }
+
+      it 'counts the label sets and not the <initlabels> blocks' do
+        expect { metric }.not_to raise_error
+      end
+    end
+
+    context 'without a limit' do
+      let(:max_series_per_metric) { 0 }
+
+      it 'accepts any number of <initlabels> label sets' do
+        expect { metric }.not_to raise_error
+        expect { instrument('/d') }.not_to raise_error
+      end
+    end
+  end
+
   describe '<metric> overriding the plugin limit' do
     # the plugin is configured with 100, which <metric> has to win over
     let(:metric) do
