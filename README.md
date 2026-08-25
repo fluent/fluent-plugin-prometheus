@@ -328,9 +328,11 @@ expands faster than the others can be limited on its own:
 </filter>
 ```
 
-Note that the number of label sets is counted per metric of each plugin
-instance. When two plugin instances instrument the same metric name, each of
-them has its own limit.
+The label sets are counted per metric name, not per `<metric>` section. Sections
+with the same `name`, in one plugin or in two, instrument the same metric and
+share one count. Each of them refuses a new label set once that shared count
+reaches its own limit, so a section which leaves `max_series_per_metric` at `0`
+adds label sets without counting them.
 
 A metric with `initialized true` creates its `<initlabels>` label sets at
 startup, so they count towards `max_series_per_metric` before any record

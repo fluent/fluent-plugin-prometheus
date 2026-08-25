@@ -106,6 +106,69 @@ module Fluent
         end
       end
 
+      # The label sets a client metric holds. The client registry keys its
+      # metrics by name alone, so every <metric> section with the same name
+      # instruments the same client metric and shares this set. Counting per
+      # section would let the metric hold max_series_per_metric label sets per
+      # section instead of max_series_per_metric in total.
+      class SeriesSet
+        # The set is kept on the client metric, so that it is found again by
+        # every section and goes away with it. Metrics are built at
+        # configuration time, which is single threaded, so no lock is needed.
+        IVAR = :@fluent_plugin_prometheus_series_set
+
+        def self.of(client_metric)
+          client_metric.instance_variable_get(IVAR) ||
+            client_metric.instance_variable_set(IVAR, new)
+        end
+
+        def initialize
+          @series = {}
+          @mutex = Mutex.new
+        end
+
+        def size
+          @mutex.synchronize { @series.size }
+        end
+
+        # Checking the limit and taking the slot happen under the same
+        # lock, so that concurrent calls cannot both take the last one.
+        # A slot is taken as :reserved until the instrumentation confirms it,
+        # so that a failing call can tell an in-flight reservation from a
+        # series the client already holds.
+        # Returns true when this call took the slot.
+        def reserve(label, limit, name)
+          @mutex.synchronize do
+            next false if @series.key?(label)
+
+            if @series.size >= limit
+              raise LabelSetLimitError, "#{name} reached max_series_per_metric (#{limit})"
+            end
+
+            @series[label] = :reserved
+            next true
+          end
+        end
+
+        # Marks a label set as established, once the client actually holds it.
+        # The slot is (re)taken without checking the limit on purpose: the
+        # series exists on the client side already, so it has to be accounted
+        # for even when a concurrent failure gave the reservation back in the
+        # meantime.
+        def confirm(label)
+          @mutex.synchronize { @series[label] = :confirmed }
+        end
+
+        # Gives a reserved slot back when the instrumentation failed, so that a
+        # record which never reached the client does not consume the limit. A
+        # label set which a concurrent call confirmed in the meantime is kept:
+        # the client holds that series, and dropping it here would let the
+        # metric grow past max_series_per_metric.
+        def release(label)
+          @mutex.synchronize { @series.delete(label) if @series[label] == :reserved }
+        end
+      end
+
       def self.parse_labels_elements(conf)
         labels = conf.elements.select { |e| e.name == 'labels' }
         if labels.size > 1
@@ -387,8 +450,6 @@ module Fluent
           @max_series_per_metric = metric_limit(element, 'max_series_per_metric',
                                                 opts.fetch(:max_series_per_metric, DEFAULT_MAX_SERIES_PER_METRIC))
           @on_label_value_truncated = opts[:on_label_value_truncated]
-          @series = {}
-          @series_mutex = Mutex.new
 
           if @initialized
             # A pre-initialized label set is given to the client as is, so it
@@ -398,12 +459,6 @@ module Fluent
             # and the metric would grow past max_series_per_metric.
             @base_initlabels = Fluent::Plugin::Prometheus.parse_initlabels_elements(element, @base_labels)
                                                          .map { |initlabels| truncate_label_set(initlabels) }
-            # the client holds them from now on, so they consume the limit as
-            # well and are established right away
-            @base_initlabels.each do |initlabels|
-              @series[normalize_label_set(initlabels)] = :confirmed
-            end
-            check_initlabels_fit_series_limit!
           end
         end
 
@@ -487,13 +542,26 @@ module Fluent
           end
         end
 
+        # Ties this metric to the label sets of its client metric. A subclass
+        # calls it once it has that client metric.
+        def bind_series_set(client_metric)
+          @series_set = SeriesSet.of(client_metric)
+
+          if @initialized
+            # the client is given them at startup, so they take their slots now
+            @base_initlabels.each do |initlabels|
+              @series_set.confirm(normalize_label_set(initlabels))
+            end
+            check_initlabels_fit_series_limit!
+          end
+        end
+
         def check_initlabels_fit_series_limit!
           return if @max_series_per_metric <= 0
-          # two <initlabels> blocks with the same values make one label set, so
-          # count the label sets and not the blocks
-          return if @series.size <= @max_series_per_metric
+          # two <initlabels> blocks with the same values make one label set
+          return if @series_set.size <= @max_series_per_metric
 
-          raise ConfigError, "metric #{@name} has #{@series.size} <initlabels> label sets, " \
+          raise ConfigError, "metric #{@name} holds #{@series_set.size} label sets from <initlabels>, " \
                              "but max_series_per_metric is #{@max_series_per_metric}: " \
                              "no record could ever be counted"
         end
@@ -522,7 +590,7 @@ module Fluent
           end
         end
 
-        # Same, for a label set kept in @series, whose values are always
+        # Same, for a label set kept in the SeriesSet, whose values are always
         # Strings: the ones built from records go through to_s.
         def normalize_label_set(label)
           label.each_with_object({}) do |(k, v), normalized|
@@ -532,51 +600,25 @@ module Fluent
 
         # Keeps the cardinality of a metric bounded. Once the limit is reached,
         # the already known label sets keep working and only a new one is
-        # refused. Checking the limit and taking the slot happen under the same
-        # lock, so that concurrent calls cannot both take the last one.
-        # A slot is taken as :reserved until the instrumentation confirms it,
-        # so that a failing call can tell an in-flight reservation from a
-        # series the client already holds.
+        # refused.
         # Returns true when this call took the slot, which is what tells
         # #with_label_set whether it has something to give back on failure.
         def reserve_series!(label)
+          # with the limit off nothing is counted, otherwise the set would grow
+          # with every label set and leak what the limit is there to prevent
           return false if @max_series_per_metric <= 0
 
-          @series_mutex.synchronize do
-            next false if @series.key?(label)
-
-            if @series.size >= @max_series_per_metric
-              # the message must not contain the label set, it comes from a record
-              raise LabelSetLimitError, "#{@name} reached max_series_per_metric (#{@max_series_per_metric})"
-            end
-
-            @series[label] = :reserved
-            next true
-          end
+          @series_set.reserve(label, @max_series_per_metric, @name)
         end
 
-        # Marks a label set as established, once the client actually holds it.
-        # The slot is (re)taken without checking the limit on purpose: the
-        # series exists on the client side already, so it has to be accounted
-        # for even when a concurrent failure gave the reservation back in the
-        # meantime.
         def confirm_series(label)
           return if @max_series_per_metric <= 0
 
-          @series_mutex.synchronize do
-            @series[label] = :confirmed
-          end
+          @series_set.confirm(label)
         end
 
-        # Gives a reserved slot back when the instrumentation failed, so that a
-        # record which never reached the client does not consume the limit. A
-        # label set which a concurrent call confirmed in the meantime is kept:
-        # the client holds that series, and dropping it here would let the
-        # metric grow past max_series_per_metric.
         def release_series(label)
-          @series_mutex.synchronize do
-            @series.delete(label) if @series[label] == :reserved
-          end
+          @series_set.release(label)
         end
       end
 
@@ -592,6 +634,7 @@ module Fluent
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @gauge = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :gauge, element['desc'])
           end
+          bind_series_set(@gauge)
 
           if @initialized
             Fluent::Plugin::Prometheus::Metric.init_label_set(@gauge, @base_initlabels, @base_labels)
@@ -620,6 +663,7 @@ module Fluent
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @counter = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :counter, element['desc'])
           end
+          bind_series_set(@counter)
 
           if @initialized
             Fluent::Plugin::Prometheus::Metric.init_label_set(@counter, @base_initlabels, @base_labels)
@@ -657,6 +701,7 @@ module Fluent
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @summary = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :summary, element['desc'])
           end
+          bind_series_set(@summary)
 
           if @initialized
             Fluent::Plugin::Prometheus::Metric.init_label_set(@summary, @base_initlabels, @base_labels)
@@ -696,6 +741,7 @@ module Fluent
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @histogram = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])
           end
+          bind_series_set(@histogram)
 
           if @initialized
             Fluent::Plugin::Prometheus::Metric.init_label_set(@histogram, @base_initlabels, @base_labels)

@@ -169,6 +169,39 @@ describe Fluent::Plugin::Prometheus::Metric do
     end
   end
 
+  describe 'a metric name shared by two <metric> sections' do
+    # both sections instrument the same client metric, so counting per section
+    # would let it hold max_series_per_metric label sets twice over
+    let(:max_series_per_metric) { 2 }
+    let(:other_metric) { Fluent::Plugin::Prometheus::Counter.new(element, registry, {}, {}) }
+
+    def instrument_other(path, value = 1)
+      other_metric.instrument({'foo' => value, 'path' => path}, expander)
+    end
+
+    it 'wraps one and the same client metric' do
+      expect(other_metric.instance_variable_get(:@counter))
+        .to equal(metric.instance_variable_get(:@counter))
+    end
+
+    it 'counts the label sets of both sections against one limit' do
+      instrument('/a')
+      instrument_other('/b')
+
+      # the metric is full, whichever section the next record goes through
+      expect { instrument_other('/c') }.to raise_error(Fluent::Plugin::Prometheus::LabelSetLimitError)
+      expect { instrument('/d') }.to raise_error(Fluent::Plugin::Prometheus::LabelSetLimitError)
+      expect(client_counter.values.keys).to contain_exactly({path: '/a'}, {path: '/b'})
+    end
+
+    it 'lets both sections instrument a label set the metric already holds' do
+      instrument('/a')
+
+      expect { instrument_other('/a', 2) }.not_to raise_error
+      expect(client_counter.values[{path: '/a'}]).to eq(3)
+    end
+  end
+
   describe 'initialized true with <initlabels>' do
     let(:initlabels) { ['/a', '/b', '/c'] }
     let(:element) do
@@ -193,13 +226,13 @@ describe Fluent::Plugin::Prometheus::Metric do
 
       it 'stops at startup instead of dropping every record' do
         expect { metric }.to raise_error(Fluent::ConfigError,
-                                         /has 3 <initlabels> label sets.*max_series_per_metric is 1/)
+                                         /holds 3 label sets from <initlabels>.*max_series_per_metric is 1/)
       end
     end
 
     context 'with a limit equal to the number of <initlabels> label sets' do
-      # every label set is known in advance, which is what <initlabels> is for:
-      # the limit is reached but no record is dropped
+      # every label set is known in advance, so the limit is reached but no
+      # record is dropped
       let(:max_series_per_metric) { 3 }
 
       it 'accepts the config' do
