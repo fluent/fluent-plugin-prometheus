@@ -7,6 +7,8 @@ module Fluent::Plugin
     include Fluent::Plugin::PrometheusLabelParser
     include Fluent::Plugin::Prometheus
 
+    helpers :event_emitter
+
     def initialize
       super
       @registry = ::Prometheus::Client.registry

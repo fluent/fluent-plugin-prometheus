@@ -19,7 +19,31 @@ describe Fluent::Plugin::PrometheusOutput do
   describe '#testinitlabels' do
     it_behaves_like 'initalized metrics'
   end
-  
+
+  # filter_prometheus routes such a record to @ERROR already. The output has to
+  # do the same, instead of failing on the router itself.
+  describe 'a record which cannot be instrumented' do
+    let(:config) {
+      BASE_CONFIG + %(
+        <metric>
+          name failing
+          type counter
+          desc Something foo.
+          key foo
+        </metric>
+      )
+    }
+
+    it 'emits an error event' do
+      driver.run(default_tag: tag) do
+        # a non numeric value makes Counter#increment raise
+        driver.feed(event_time, {'foo' => 'not a number'})
+      end
+
+      expect(driver.error_events.size).to eq(1)
+    end
+  end
+
   describe '#run' do
     let(:message) { {"foo" => 100, "bar" => 100, "baz" => 100, "qux" => 10} }
 
