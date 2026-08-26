@@ -460,7 +460,23 @@ module Fluent
             @base_initlabels.each do |initlabels|
               confirm_series(normalize_label_set(initlabels))
             end
+            check_initlabels_fit_series_limit!
           end
+        end
+
+        # The client is given these label sets at startup, so a limit which
+        # does not fit them is already exceeded before any record arrives and
+        # the metric could never take a new one. Stop instead of running that
+        # way. A record on one of them is still counted, since the metric
+        # already holds its label set.
+        def check_initlabels_fit_series_limit!
+          return if @max_series_per_metric <= 0
+          # two <initlabels> blocks with the same values make one label set
+          return if @series_set.size <= @max_series_per_metric
+
+          raise ConfigError, "metric #{@name} holds #{@series_set.size} label sets from <initlabels>, " \
+                             "but max_series_per_metric is #{@max_series_per_metric}: " \
+                             "the limit is already exceeded before any record arrives"
         end
 
         # The SeriesSet keys a label set by its values, so the same value has to

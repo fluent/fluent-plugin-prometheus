@@ -317,6 +317,12 @@ not a number, does not consume the limit. A pre-initialized label set
 (`initialized` and `<initlabels>`) consumes it from the start, since the metric
 holds it before any record arrives.
 
+A `<metric>` section is refused at startup with a configuration error when its
+limit is smaller than the number of its own `<initlabels>` label sets: the limit
+is already exceeded before any record arrives, so the metric could never take a
+new label set. A limit equal to that number is fine, since every label set of
+the metric is known in advance.
+
 ##### Observing what the limit leaves out
 
 A dropped label set is not routed to `@ERROR`, because it is what the

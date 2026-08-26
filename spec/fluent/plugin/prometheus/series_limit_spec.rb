@@ -270,6 +270,16 @@ describe Fluent::Plugin::Prometheus::Metric do
       )
     end
 
+    context 'with a limit below the number of <initlabels> label sets' do
+      # 3 label sets exist at startup, so a limit of 1 would drop every record
+      let(:max_series_per_metric) { 1 }
+
+      it 'stops at startup instead of dropping every record' do
+        expect { metric }.to raise_error(Fluent::ConfigError,
+                                         /holds 3 label sets from <initlabels>.*max_series_per_metric is 1/)
+      end
+    end
+
     context 'with a limit equal to the number of <initlabels> label sets' do
       # every label set is known in advance, so the limit is reached but no
       # record is dropped
@@ -287,6 +297,25 @@ describe Fluent::Plugin::Prometheus::Metric do
 
       it 'refuses a label set which is not in <initlabels>' do
         expect { instrument('/d') }.to raise_error(Fluent::Plugin::Prometheus::LabelSetLimitError)
+      end
+    end
+
+    context 'with two <initlabels> holding the same values' do
+      # both make the same label set, so they take one slot
+      let(:initlabels) { ['/a', '/a'] }
+      let(:max_series_per_metric) { 1 }
+
+      it 'counts the label sets and not the <initlabels> blocks' do
+        expect { metric }.not_to raise_error
+      end
+    end
+
+    context 'without a limit' do
+      let(:max_series_per_metric) { 0 }
+
+      it 'accepts any number of <initlabels> label sets' do
+        expect { metric }.not_to raise_error
+        expect { instrument('/d') }.not_to raise_error
       end
     end
   end
