@@ -1,5 +1,6 @@
 require 'prometheus/client'
 require 'prometheus/client/formats/text'
+require 'fluent/plugin/prometheus/log_throttle'
 require 'fluent/plugin/prometheus/placeholder_expander'
 
 module Fluent

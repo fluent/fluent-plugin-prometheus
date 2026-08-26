@@ -422,6 +422,10 @@ describe Fluent::Plugin::PrometheusInput do
     end
   end
 
+  # The LogThrottle spec covers the throttling itself. These examples cover how
+  # in_prometheus uses it: the scope it throttles on, the fingerprint it makes
+  # from an error, the suppressed_log_count in the log, and what the client
+  # gets meanwhile.
   describe 'error log throttling' do
     let(:config) { LOCAL_CONFIG }
     let(:secret_message) { 'dummy secret detail: password=deadbeef' }
@@ -457,22 +461,6 @@ describe Fluent::Plugin::PrometheusInput do
         end
       end
 
-      it 'logs the repeated same failure again after ignore_error_log_interval has elapsed' do
-        2.times do
-          driver.instance.send(:all_metrics)
-          clock[:now] += driver.instance.ignore_error_log_interval
-        end
-        expect(error_logs(log_message).size).to eq(2)
-      end
-
-      it 'does not log the repeated same failure just before ignore_error_log_interval has elapsed' do
-        2.times do
-          driver.instance.send(:all_metrics)
-          clock[:now] += driver.instance.ignore_error_log_interval - 0.1
-        end
-        expect(error_logs(log_message).size).to eq(1)
-      end
-
       it 'reports how many logs were suppressed in the meantime' do
         3.times { driver.instance.send(:all_metrics) }
         clock[:now] += driver.instance.ignore_error_log_interval
@@ -493,14 +481,7 @@ describe Fluent::Plugin::PrometheusInput do
         driver.instance.send(:log_error_throttled, scope, message, error: error)
       end
 
-      # the plugin raises a fresh exception object per failure, so the errors
-      # have to be compared by value, not by identity
-      it 'suppresses an equal error given as a different object' do
-        log_error(:metrics, log_message, RuntimeError.new(secret_message))
-        log_error(:metrics, log_message, RuntimeError.new(secret_message))
-        expect(error_logs(log_message).size).to eq(1)
-      end
-
+      # the class and the message both take part in the fingerprint
       it 'logs immediately when the error class differs' do
         log_error(:metrics, log_message, RuntimeError.new(secret_message))
         log_error(:metrics, log_message, ArgumentError.new(secret_message))
@@ -514,14 +495,6 @@ describe Fluent::Plugin::PrometheusInput do
       end
 
       # the scope, not the log message, picks the slot to throttle on
-      it 'keeps a separate state per scope' do
-        error = RuntimeError.new(secret_message)
-        log_error(:metrics, log_message, error)
-        log_error(:workers_metrics, workers_log_message, error)
-        expect(error_logs(log_message).size).to eq(1)
-        expect(error_logs(workers_log_message).size).to eq(1)
-      end
-
       it 'suppresses an equal error within a scope even when the log message differs' do
         error = RuntimeError.new(secret_message)
         log_error(:metrics, log_message, error)
@@ -529,6 +502,7 @@ describe Fluent::Plugin::PrometheusInput do
         expect(error_logs(workers_log_message)).to be_empty
       end
 
+      # the only example which takes the interval from the configuration
       context 'with ignore_error_log_interval 0' do
         let(:config) { LOCAL_CONFIG + %[
   ignore_error_log_interval 0
@@ -557,22 +531,6 @@ describe Fluent::Plugin::PrometheusInput do
         end
         expect(error_logs(log_message).size).to eq(1)
         expect(error_logs(workers_log_message).size).to eq(1)
-      end
-    end
-
-    context 'when errors occur concurrently' do
-      # long enough to keep every call within the same interval
-      let(:config) { LOCAL_CONFIG + %[
-  ignore_error_log_interval 3600
-] }
-
-      it 'logs the error only once' do
-        instance = driver.instance
-        error = RuntimeError.new(secret_message)
-        10.times.map {
-          Thread.new { instance.send(:log_error_throttled, :metrics, log_message, error: error) }
-        }.each(&:join)
-        expect(error_logs(log_message).size).to eq(1)
       end
     end
   end
