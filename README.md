@@ -266,6 +266,71 @@ You can access nested keys in records via dot or bracket notation (https://docs.
 
 See Supported Metric Type and Labels for more configuration parameters.
 
+#### Limiting label expansion
+
+Label values come from records, so a metric grows unboundedly when a label is
+bound to a field with many distinct values. Both plugins can bound it with
+`max_series_per_metric`: once a metric holds that many label sets, a record
+which brings a new one is dropped, while the label sets already known keep
+being instrumented.
+
+|parameter|description|default|
+|---|---|---|
+|max_series_per_metric|The maximum number of label sets a metric can hold. `0` means unlimited.|0|
+|ignore_error_log_interval|The interval in seconds to suppress the repeated warning about the drops. `0` logs every occurrence.|3600|
+
+**The limit is disabled by default and must be enabled explicitly**, since a
+dropped record is lost and cannot be recovered. A `<metric>` section overrides
+the value given to the plugin, so that a metric which expands faster than the
+others is bound on its own, while one whose labels are known to be bounded
+stays unlimited with `0`:
+
+```
+<filter message>
+  @type prometheus
+  max_series_per_metric 1000
+  <metric>
+    name message_foo_counter
+    type counter
+    desc The total number of foo in message.
+    key foo
+    max_series_per_metric 10
+    <labels>
+      path $.kubernetes.pod_name
+    </labels>
+  </metric>
+</filter>
+```
+
+The label sets are counted per metric name, not per `<metric>` section: sections
+with the same `name`, in one plugin or in two, share one count. Each of them
+refuses a new label set once that shared count reaches its own limit, so a
+section which stays at `0` adds label sets without counting them.
+
+A record which fails to be instrumented, for example when the value of `key` is
+not a number, does not consume the limit. A pre-initialized label set
+(`initialized` and `<initlabels>`) consumes it from the start, since the metric
+holds it before any record arrives.
+
+##### Observing what the limit leaves out
+
+A dropped label set is not routed to `@ERROR`, because it is what the
+configuration asks for. It is reported in two ways instead:
+
+* a warning in the Fluentd log, throttled per metric: it is suppressed for
+  `ignore_error_log_interval` seconds and reports how many warnings were
+  suppressed in the meantime.
+* `fluentd_prometheus_dropped_label_sets_total{name}`, which counts the records
+  the metric `name` did not instrument. It is registered on the first drop, so
+  it does not show up as long as nothing is dropped, and its label comes from
+  the configuration and not from a record, so it cannot expand on its own.
+
+Alert on the counter to notice that a metric is losing records:
+
+```
+rate(fluentd_prometheus_dropped_label_sets_total[5m]) > 0
+```
+
 ## Supported Metric Types
 
 For details of each metric type, see [Prometheus documentation](http://prometheus.io/docs/concepts/metric_types/). Also see [metric name guide](http://prometheus.io/docs/practices/naming/).

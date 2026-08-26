@@ -20,6 +20,10 @@ describe Fluent::Plugin::PrometheusOutput do
     it_behaves_like 'initalized metrics'
   end
 
+  describe 'limiting label expansion' do
+    it_behaves_like 'limits label expansion'
+  end
+
   # filter_prometheus routes such a record to @ERROR already. The output has to
   # do the same, instead of failing on the router itself.
   describe 'a record which cannot be instrumented' do

@@ -4,9 +4,10 @@ module Fluent
   module Plugin
     module Prometheus
       # Suppresses the repeated log for the same key within the interval.
-      # in_prometheus uses it, with an instance of its own. The key decides
-      # what is throttled, an error scope for now. The fingerprint tells the
-      # logs of a key apart: one which differs from the last is not suppressed.
+      # in_prometheus and filter/out_prometheus use it, each with its own
+      # instance. The key decides what is throttled: an error scope or a
+      # metric. When a fingerprint is given, a log whose fingerprint differs
+      # from the last one is not suppressed.
       class LogThrottle
         Entry = Struct.new(:time, :fingerprint, :suppressed)
 
@@ -20,8 +21,9 @@ module Fluent
         # Returns [emit, suppressed_count]. emit is true for the first log of a
         # key, for a new fingerprint, and after the interval has passed.
         # suppressed_count is how many logs were suppressed since the last one
-        # was emitted.
-        def check(key, fingerprint)
+        # was emitted. Without a fingerprint, a key is throttled by the
+        # interval alone.
+        def check(key, fingerprint = nil)
           return [true, 0] if @interval <= 0
 
           @mutex.synchronize do

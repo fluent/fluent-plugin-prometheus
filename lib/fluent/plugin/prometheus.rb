@@ -32,6 +32,85 @@ module Fluent
 
     module Prometheus
       class AlreadyRegisteredError < StandardError; end
+      class LabelSetLimitError < StandardError; end
+
+      # 0 or less means unlimited. The limit is unlimited by default, because
+      # enabling it changes the existing metrics silently: dropping a label set
+      # loses the record without any way to recover it. An operator who needs
+      # to bound the cardinality has to opt in explicitly.
+      DEFAULT_MAX_SERIES_PER_METRIC = 0
+      DEFAULT_IGNORE_ERROR_LOG_INTERVAL = 3600
+
+      # the drops are visible in Prometheus, not only in the Fluentd log
+      DROPPED_LABEL_SETS_METRIC_NAME = :fluentd_prometheus_dropped_label_sets_total
+      DROPPED_LABEL_SETS_METRIC_DESC = 'The total number of records dropped because the metric reached max_series_per_metric.'
+
+      def self.included(klass)
+        klass.class_eval do
+          desc 'The maximum number of label sets a metric can hold. Exceeding label sets are dropped. 0 (default) means unlimited.'
+          config_param :max_series_per_metric, :integer, default: DEFAULT_MAX_SERIES_PER_METRIC
+          desc 'The interval to suppress the repeated warning about the drops.'
+          config_param :ignore_error_log_interval, :time, default: DEFAULT_IGNORE_ERROR_LOG_INTERVAL
+        end
+      end
+
+      # The label sets a client metric holds. The client registry keys its
+      # metrics by name alone, so every <metric> section with the same name
+      # instruments the same client metric and shares this set, instead of
+      # holding max_series_per_metric label sets of its own.
+      class SeriesSet
+        # The set is kept on the client metric, so that it is found again by
+        # every section and goes away with it. Metrics are built at
+        # configuration time, which is single threaded, so no lock is needed.
+        IVAR = :@fluent_plugin_prometheus_series_set
+
+        def self.of(client_metric)
+          client_metric.instance_variable_get(IVAR) ||
+            client_metric.instance_variable_set(IVAR, new)
+        end
+
+        def initialize
+          @series = {}
+          @mutex = Mutex.new
+        end
+
+        def size
+          @mutex.synchronize { @series.size }
+        end
+
+        # Checking the limit and taking the slot happen under the same lock, so
+        # that concurrent calls cannot both take the last one. The slot stays
+        # :reserved until the instrumentation confirms it, so that a failing
+        # call can tell an in-flight reservation from a series the client holds.
+        def reserve(label, limit, name)
+          @mutex.synchronize do
+            next false if @series.key?(label)
+
+            if @series.size >= limit
+              raise LabelSetLimitError, "#{name} reached max_series_per_metric (#{limit})"
+            end
+
+            @series[label] = :reserved
+            next true
+          end
+        end
+
+        # Marks a label set as established, once the client actually holds it.
+        # The limit is not checked on purpose: the series exists on the client
+        # side already, so it has to be accounted for even when a concurrent
+        # failure gave the reservation back in the meantime.
+        def confirm(label)
+          @mutex.synchronize { @series[label] = :confirmed }
+        end
+
+        # Gives a reserved slot back when the instrumentation failed, so that a
+        # record which never reached the client does not consume the limit. One
+        # which a concurrent call confirmed in the meantime is kept: the client
+        # holds that series.
+        def release(label)
+          @mutex.synchronize { @series.delete(label) if @series[label] == :reserved }
+        end
+      end
 
       def self.parse_labels_elements(conf)
         labels = conf.elements.select { |e| e.name == 'labels' }
@@ -120,7 +199,7 @@ module Fluent
         base_initlabels
       end
 
-      def self.parse_metrics_elements(conf, registry, labels = {})
+      def self.parse_metrics_elements(conf, registry, labels = {}, opts = {})
         metrics = []
         conf.elements.select { |element|
           element.name == 'metric'
@@ -131,13 +210,13 @@ module Fluent
           end
           case element['type']
           when 'summary'
-            metrics << Fluent::Plugin::Prometheus::Summary.new(element, registry, labels)
+            metrics << Fluent::Plugin::Prometheus::Summary.new(element, registry, labels, opts)
           when 'gauge'
-            metrics << Fluent::Plugin::Prometheus::Gauge.new(element, registry, labels)
+            metrics << Fluent::Plugin::Prometheus::Gauge.new(element, registry, labels, opts)
           when 'counter'
-            metrics << Fluent::Plugin::Prometheus::Counter.new(element, registry, labels)
+            metrics << Fluent::Plugin::Prometheus::Counter.new(element, registry, labels, opts)
           when 'histogram'
-            metrics << Fluent::Plugin::Prometheus::Histogram.new(element, registry, labels)
+            metrics << Fluent::Plugin::Prometheus::Histogram.new(element, registry, labels, opts)
           else
             raise ConfigError, "type option must be 'counter', 'gauge', 'summary' or 'histogram'"
           end
@@ -166,6 +245,49 @@ module Fluent
         @placeholder_values = {}
         @placeholder_expander_builder = Fluent::Plugin::Prometheus.placeholder_expander(log)
         @hostname = Socket.gethostname
+        @label_set_limit_log_throttle = Fluent::Plugin::Prometheus::LogThrottle.new(@ignore_error_log_interval)
+        @dropped_label_sets_counter = nil
+      end
+
+      def metric_options
+        {
+          max_series_per_metric: @max_series_per_metric,
+        }
+      end
+
+      # Registered on the first occurrence only, so that a plugin which never
+      # drops anything does not expose a counter which stays 0 forever. Its
+      # labels come from the configuration, so they cannot blow up on their own.
+      def limit_counter(name, docstring, labels)
+        @registry.counter(name, docstring: docstring, labels: labels)
+      rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
+        # another plugin instance shares the registry and registered it first
+        Fluent::Plugin::Prometheus::Metric.get(@registry, name, :counter, docstring)
+      end
+
+      def dropped_label_sets_counter
+        @dropped_label_sets_counter ||=
+          limit_counter(DROPPED_LABEL_SETS_METRIC_NAME, DROPPED_LABEL_SETS_METRIC_DESC, [:name])
+      end
+
+      def warn_label_set_limit(metric)
+        # the drop is always counted, while the log below is throttled
+        dropped_label_sets_counter.increment(labels: { name: metric.name.to_s })
+
+        warn_throttled(@label_set_limit_log_throttle, metric.name,
+                       "prometheus: dropped a label set because the metric reached max_series_per_metric.",
+                       name: metric.name, max_series_per_metric: metric.max_series_per_metric)
+      end
+
+      # The counter above is never throttled, only the log which comes with it:
+      # one line per record would flood the Fluentd log, and the count is in
+      # Prometheus already.
+      def warn_throttled(throttle, key, message, **details)
+        emit, suppressed = throttle.check(key)
+        return unless emit
+
+        details = details.merge(suppressed_log_count: suppressed) if suppressed > 0
+        log.warn(message, details)
       end
 
       def instrument_single(tag, time, record, metrics)
@@ -181,6 +303,9 @@ module Fluent
         metrics.each do |metric|
           begin
             metric.instrument(record, expander)
+          rescue Fluent::Plugin::Prometheus::LabelSetLimitError
+            # dropping the label set is intended, so it is not an error event
+            warn_label_set_limit(metric)
           rescue => e
             log.warn "prometheus: failed to instrument a metric.", error_class: e.class, error: e, tag: tag, name: metric.name
             router.emit_error_event(tag, time, record, e)
@@ -202,6 +327,9 @@ module Fluent
           metrics.each do |metric|
             begin
               metric.instrument(record, expander)
+            rescue Fluent::Plugin::Prometheus::LabelSetLimitError
+              # dropping the label set is intended, so it is not an error event
+              warn_label_set_limit(metric)
             rescue => e
               log.warn "prometheus: failed to instrument a metric.", error_class: e.class, error: e, tag: tag, name: metric.name
               router.emit_error_event(tag, time, record, e)
@@ -215,8 +343,9 @@ module Fluent
         attr_reader :name
         attr_reader :key
         attr_reader :desc
+        attr_reader :max_series_per_metric
 
-        def initialize(element, registry, labels)
+        def initialize(element, registry, labels, opts = {})
           ['name', 'desc'].each do |key|
             if element[key].nil?
               raise ConfigError, "metric requires '#{key}' option"
@@ -230,6 +359,10 @@ module Fluent
           
           @base_labels = Fluent::Plugin::Prometheus.parse_labels_elements(element)
           @base_labels = labels.merge(@base_labels)
+
+          # <metric> overrides the limit given by the plugin
+          @max_series_per_metric = metric_limit(element, 'max_series_per_metric',
+                                                opts.fetch(:max_series_per_metric, DEFAULT_MAX_SERIES_PER_METRIC))
 
           if @initialized
             @base_initlabels = Fluent::Plugin::Prometheus.parse_initlabels_elements(element, @base_labels)
@@ -255,10 +388,28 @@ module Fluent
             if v.is_a?(String)
               label[k] = expander.expand(v)
             else
-              label[k] = v.call(record)
+              label[k] = normalize_label_value(v.call(record))
             end
           end
           label
+        end
+
+        # Instruments a record through the given block and keeps its label set
+        # as a series once the client holds it. The slot is taken before
+        # instrumenting and given back on failure, so that a record which never
+        # reached the client does not exhaust max_series_per_metric.
+        def with_label_set(record, expander)
+          label = labels(record, expander)
+          reserved = reserve_series!(label)
+          begin
+            result = yield label
+          rescue
+            # a call which joined another's reservation has nothing to release
+            release_series(label) if reserved
+            raise
+          end
+          confirm_series(label)
+          result
         end
 
         def self.get(registry, name, type, docstring)
@@ -274,10 +425,69 @@ module Fluent
 
           metric
         end
+
+        private
+
+        def metric_limit(element, name, default)
+          return default unless element.has_key?(name)
+
+          begin
+            # base 10 explicitly, so that a value like 08 is not an octal
+            Integer(element[name], 10)
+          rescue ArgumentError, TypeError
+            raise ConfigError, "#{name} in <metric> must be an integer: #{element[name]}"
+          end
+        end
+
+        # Called by a subclass, once it has its client metric.
+        def bind_series_set(client_metric)
+          @series_set = SeriesSet.of(client_metric)
+
+          if @initialized
+            # the client is given them at startup, so they take their slots now
+            @base_initlabels.each do |initlabels|
+              confirm_series(normalize_label_set(initlabels))
+            end
+          end
+        end
+
+        # The SeriesSet keys a label set by its values, so the same value has to
+        # look the same whether a RecordAccessor or <initlabels> produced it.
+        def normalize_label_value(value)
+          value.is_a?(String) ? value : value.to_s
+        end
+
+        def normalize_label_set(label)
+          label.each_with_object({}) do |(k, v), normalized|
+            normalized[k] = normalize_label_value(v)
+          end
+        end
+
+        # Returns true when this call took the slot, which tells #with_label_set
+        # whether it has something to give back on failure.
+        def reserve_series!(label)
+          # nothing is counted with the limit off, otherwise the set would grow
+          # with every label set and leak what the limit is there to prevent
+          return false if @max_series_per_metric <= 0
+
+          @series_set.reserve(label, @max_series_per_metric, @name)
+        end
+
+        def confirm_series(label)
+          return if @max_series_per_metric <= 0
+
+          @series_set.confirm(label)
+        end
+
+        def release_series(label)
+          return if @max_series_per_metric <= 0
+
+          @series_set.release(label)
+        end
       end
 
       class Gauge < Metric
-        def initialize(element, registry, labels)
+        def initialize(element, registry, labels, opts = {})
           super
           if @key.nil?
             raise ConfigError, "gauge metric requires 'key' option"
@@ -288,6 +498,7 @@ module Fluent
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @gauge = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :gauge, element['desc'])
           end
+          bind_series_set(@gauge)
 
           if @initialized
             Fluent::Plugin::Prometheus::Metric.init_label_set(@gauge, @base_initlabels, @base_labels)
@@ -301,19 +512,22 @@ module Fluent
             value = @key.call(record)
           end
           if value
-            @gauge.set(value, labels: labels(record, expander))
+            with_label_set(record, expander) do |label|
+              @gauge.set(value, labels: label)
+            end
           end
         end
       end
 
       class Counter < Metric
-        def initialize(element, registry, labels)
+        def initialize(element, registry, labels, opts = {})
           super
           begin
             @counter = registry.counter(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys)
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @counter = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :counter, element['desc'])
           end
+          bind_series_set(@counter)
 
           if @initialized
             Fluent::Plugin::Prometheus::Metric.init_label_set(@counter, @base_initlabels, @base_labels)
@@ -333,12 +547,14 @@ module Fluent
           # ignore if record value is nil
           return if value.nil?
 
-          @counter.increment(by: value, labels: labels(record, expander))
+          with_label_set(record, expander) do |label|
+            @counter.increment(by: value, labels: label)
+          end
         end
       end
 
       class Summary < Metric
-        def initialize(element, registry, labels)
+        def initialize(element, registry, labels, opts = {})
           super
           if @key.nil?
             raise ConfigError, "summary metric requires 'key' option"
@@ -349,6 +565,7 @@ module Fluent
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @summary = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :summary, element['desc'])
           end
+          bind_series_set(@summary)
 
           if @initialized
             Fluent::Plugin::Prometheus::Metric.init_label_set(@summary, @base_initlabels, @base_labels)
@@ -362,13 +579,15 @@ module Fluent
             value = @key.call(record)
           end
           if value
-            @summary.observe(value, labels: labels(record, expander))
+            with_label_set(record, expander) do |label|
+              @summary.observe(value, labels: label)
+            end
           end
         end
       end
 
       class Histogram < Metric
-        def initialize(element, registry, labels)
+        def initialize(element, registry, labels, opts = {})
           super
           if @key.nil?
             raise ConfigError, "histogram metric requires 'key' option"
@@ -386,6 +605,7 @@ module Fluent
           rescue ::Prometheus::Client::Registry::AlreadyRegisteredError
             @histogram = Fluent::Plugin::Prometheus::Metric.get(registry, element['name'].to_sym, :histogram, element['desc'])
           end
+          bind_series_set(@histogram)
 
           if @initialized
             Fluent::Plugin::Prometheus::Metric.init_label_set(@histogram, @base_initlabels, @base_labels)
@@ -399,7 +619,9 @@ module Fluent
             value = @key.call(record)
           end
           if value
-            @histogram.observe(value, labels: labels(record, expander))
+            with_label_set(record, expander) do |label|
+              @histogram.observe(value, labels: label)
+            end
           end
         end
       end

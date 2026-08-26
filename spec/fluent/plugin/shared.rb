@@ -390,6 +390,114 @@ shared_examples_for 'instruments record' do
   end
 end
 
+shared_examples_for 'limits label expansion' do
+  # the limit is enforced by the shared Metric class, but each plugin reaches
+  # it through its own path (instrument_single vs instrument), so both are run
+  # against these examples
+  def limited_config(options)
+    BASE_CONFIG + options + %[
+      <metric>
+        name limited
+        type counter
+        desc Something foo.
+        key foo
+        <labels>
+          path $.path
+        </labels>
+      </metric>
+    ]
+  end
+
+  def drop_logs
+    driver.logs.select { |log| log.include?('dropped a label set') }
+  end
+
+  def dropped_label_sets
+    registry.metrics.find { |metric| metric.name == :fluentd_prometheus_dropped_label_sets_total }
+  end
+
+  let(:counter) { registry.get(:limited) }
+
+  context 'without any limit configured' do
+    let(:config) { limited_config('') }
+
+    it 'is unlimited by default' do
+      expect(driver.instance.max_series_per_metric).to eq(0)
+    end
+
+    it 'keeps every label set' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'foo' => 1, 'path' => '/a'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/b'})
+      end
+
+      expect(counter.values.keys).to eq([{path: '/a'}, {path: '/b'}])
+      expect(drop_logs).to be_empty
+      # nothing was dropped, so the counter is not even registered
+      expect(dropped_label_sets).to be_nil
+    end
+  end
+
+  context 'with max_series_per_metric' do
+    let(:config) { limited_config(%[max_series_per_metric 1\n]) }
+
+    it 'drops a new label set once the limit is reached' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'foo' => 1, 'path' => '/a'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/b'})
+      end
+
+      expect(counter.values.keys).to eq([{path: '/a'}])
+    end
+
+    it 'keeps instrumenting a known label set after the limit is reached' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'foo' => 1, 'path' => '/a'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/b'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/a'})
+      end
+
+      expect(counter.get(labels: {path: '/a'})).to eq(2)
+    end
+
+    it 'does not consume the limit by a label set which failed to be instrumented' do
+      driver.run(default_tag: tag) do
+        # a non numeric value makes Counter#increment raise, after the label set
+        # has been reserved
+        driver.feed(event_time, {'foo' => 'not a number', 'path' => '/a'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/b'})
+      end
+
+      expect(driver.error_events.size).to eq(1)
+      expect(counter.values.keys).to eq([{path: '/b'}])
+      expect(drop_logs).to be_empty
+    end
+
+    it 'counts every dropped record, while the log is throttled' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'foo' => 1, 'path' => '/a'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/b'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/c'})
+      end
+
+      expect(dropped_label_sets.values).to eq({{name: 'limited'} => 2.0})
+      expect(drop_logs.size).to eq(1)
+    end
+
+    # the same label set is refused again and again, and each record which
+    # brought it is lost
+    it 'counts a label set which is dropped more than once every time' do
+      driver.run(default_tag: tag) do
+        driver.feed(event_time, {'foo' => 1, 'path' => '/a'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/b'})
+        driver.feed(event_time, {'foo' => 1, 'path' => '/b'})
+      end
+
+      expect(dropped_label_sets.values).to eq({{name: 'limited'} => 2.0})
+    end
+  end
+end
+
 shared_examples_for 'initalized metrics' do
   before do
     driver.run(default_tag: tag)

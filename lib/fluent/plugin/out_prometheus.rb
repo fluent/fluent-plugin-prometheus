@@ -21,7 +21,7 @@ module Fluent::Plugin
     def configure(conf)
       super
       labels = parse_labels_elements(conf)
-      @metrics = Fluent::Plugin::Prometheus.parse_metrics_elements(conf, @registry, labels)
+      @metrics = Fluent::Plugin::Prometheus.parse_metrics_elements(conf, @registry, labels, metric_options)
     end
 
     def process(tag, es)

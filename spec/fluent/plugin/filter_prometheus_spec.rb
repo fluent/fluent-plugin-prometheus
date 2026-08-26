@@ -114,4 +114,76 @@ describe Fluent::Plugin::PrometheusFilter do
       )
     end
   end
+
+  describe 'limiting label expansion' do
+    it_behaves_like 'limits label expansion'
+  end
+
+  # the throttling itself is covered by the LogThrottle spec; what is left here
+  # is the warning warn_label_set_limit builds out of it, and the interval it
+  # takes from the configuration
+  describe 'drop log throttling' do
+    let(:config) {
+      BASE_CONFIG + %[
+        ignore_error_log_interval 3600
+        <metric>
+          name throttled
+          type counter
+          desc Something foo.
+          key foo
+        </metric>
+      ]
+    }
+    # Fluent::Clock.now is monotonic, so a plain Hash is enough to drive it
+    let(:clock) { { now: 1000.0 } }
+    let(:metric) { double('metric', name: :throttled, max_series_per_metric: 5) }
+    let(:text) { 'dropped a label set' }
+
+    before do
+      allow(Fluent::Clock).to receive(:now) { clock[:now] }
+    end
+
+    def logs_about(text)
+      driver.logs.select { |log| log.include?(text) }
+    end
+
+    def drop
+      driver.instance.send(:warn_label_set_limit, metric)
+    end
+
+    it 'warns only once within ignore_error_log_interval' do
+      5.times { drop }
+      expect(logs_about(text).size).to eq(1)
+    end
+
+    it 'reports how many warnings were suppressed in the meantime' do
+      3.times { drop }
+      clock[:now] += driver.instance.ignore_error_log_interval
+      drop
+      logs = logs_about(text)
+      expect(logs.size).to eq(2)
+      expect(logs.first).not_to include('suppressed_log_count')
+      expect(logs.last).to include('suppressed_log_count=2')
+    end
+
+    # the only example which takes the interval from the configuration
+    context 'with ignore_error_log_interval 0' do
+      let(:config) {
+        BASE_CONFIG + %[
+          ignore_error_log_interval 0
+          <metric>
+            name throttled
+            type counter
+            desc Something foo.
+            key foo
+          </metric>
+        ]
+      }
+
+      it 'warns about every drop' do
+        3.times { drop }
+        expect(logs_about(text).size).to eq(3)
+      end
+    end
+  end
 end

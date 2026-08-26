@@ -58,6 +58,25 @@ describe Fluent::Plugin::Prometheus::LogThrottle do
       expect(throttle.check(:bar, fingerprint).first).to be true
     end
 
+    # filter/out_prometheus throttles on the metric alone, since every drop of
+    # a metric reads the same
+    context 'without a fingerprint' do
+      it 'throttles on the key alone' do
+        expect(throttle.check(:foo).first).to be true
+        expect(throttle.check(:foo).first).to be false
+        expect(throttle.check(:bar).first).to be true
+      end
+
+      it 'reports how many occurrences were suppressed in the meantime' do
+        throttle.check(:foo)
+        2.times { throttle.check(:foo) }
+        clock[:now] += interval
+        emit, suppressed = throttle.check(:foo)
+        expect(emit).to be true
+        expect(suppressed).to eq(2)
+      end
+    end
+
     it 'emits immediately when the fingerprint changes within the interval' do
       expect(throttle.check(:foo, [RuntimeError, 'a']).first).to be true
       expect(throttle.check(:foo, [RuntimeError, 'b']).first).to be true
