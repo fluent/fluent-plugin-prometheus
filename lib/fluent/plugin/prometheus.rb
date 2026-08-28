@@ -104,7 +104,7 @@ module Fluent
         end
 
         # Gives a reserved slot back when the instrumentation failed, so that a
-        # record which never reached the client does not consume the limit. One
+        # label set the client does not hold does not consume the limit. One
         # which a concurrent call confirmed in the meantime is kept: the client
         # holds that series.
         def release(label)
@@ -396,8 +396,9 @@ module Fluent
 
         # Instruments a record through the given block and keeps its label set
         # as a series once the client holds it. The slot is taken before
-        # instrumenting and given back on failure, so that a record which never
-        # reached the client does not exhaust max_series_per_metric.
+        # instrumenting and given back when the client refused the record, so
+        # that a label set the client does not hold does not exhaust
+        # max_series_per_metric.
         def with_label_set(record, expander)
           label = labels(record, expander)
           reserved = reserve_series!(label)
@@ -427,6 +428,17 @@ module Fluent
         end
 
         private
+
+        # The client refuses a value which is not a number, but it is only
+        # called once the label set has been reserved, and Summary refuses it
+        # only once it has already incremented its count: releasing the slot
+        # does not take that half instrumented series back from the client.
+        # Refuse the value before it reaches either.
+        def validate_value!(value)
+          return if value.is_a?(Numeric)
+
+          raise ArgumentError, 'value must be a number'
+        end
 
         def metric_limit(element, name, default)
           return default unless element.has_key?(name)
@@ -512,6 +524,7 @@ module Fluent
             value = @key.call(record)
           end
           if value
+            validate_value!(value)
             with_label_set(record, expander) do |label|
               @gauge.set(value, labels: label)
             end
@@ -547,6 +560,7 @@ module Fluent
           # ignore if record value is nil
           return if value.nil?
 
+          validate_value!(value)
           with_label_set(record, expander) do |label|
             @counter.increment(by: value, labels: label)
           end
@@ -579,6 +593,7 @@ module Fluent
             value = @key.call(record)
           end
           if value
+            validate_value!(value)
             with_label_set(record, expander) do |label|
               @summary.observe(value, labels: label)
             end
@@ -619,6 +634,7 @@ module Fluent
             value = @key.call(record)
           end
           if value
+            validate_value!(value)
             with_label_set(record, expander) do |label|
               @histogram.observe(value, labels: label)
             end

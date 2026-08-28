@@ -40,7 +40,7 @@ describe Fluent::Plugin::PrometheusOutput do
 
     it 'emits an error event' do
       driver.run(default_tag: tag) do
-        # a non numeric value makes Counter#increment raise
+        # a non numeric value is refused when the metric is instrumented
         driver.feed(event_time, {'foo' => 'not a number'})
       end
 

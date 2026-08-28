@@ -462,8 +462,7 @@ shared_examples_for 'limits label expansion' do
 
     it 'does not consume the limit by a label set which failed to be instrumented' do
       driver.run(default_tag: tag) do
-        # a non numeric value makes Counter#increment raise, after the label set
-        # has been reserved
+        # a non numeric value is refused before the label set is reserved
         driver.feed(event_time, {'foo' => 'not a number', 'path' => '/a'})
         driver.feed(event_time, {'foo' => 1, 'path' => '/b'})
       end

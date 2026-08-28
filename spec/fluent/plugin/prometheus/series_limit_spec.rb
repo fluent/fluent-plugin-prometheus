@@ -42,8 +42,17 @@ describe Fluent::Plugin::Prometheus::Metric do
     end
 
     it 'gives the slot back when the instrumentation failed' do
-      # a non numeric value makes Counter#increment raise, after the label set
-      # has been reserved
+      # a negative value makes Counter#increment raise, after the label set has
+      # been reserved
+      expect { instrument('/a', -1) }.to raise_error(ArgumentError)
+
+      expect { instrument('/b') }.not_to raise_error
+      expect(client_counter.values.keys).to eq([{path: '/b'}])
+    end
+
+    it 'does not take a slot for a value which is not a number' do
+      # such a value is refused before the label set is reserved, so the metric
+      # is left as if the record had never arrived
       expect { instrument('/a', 'not a number') }.to raise_error(ArgumentError)
 
       expect { instrument('/b') }.not_to raise_error
@@ -98,8 +107,11 @@ describe Fluent::Plugin::Prometheus::Metric do
         resume = Queue.new
         stall_first_instrumentation(entered, resume)
 
+        # a negative value is the one which fails inside the client call: a
+        # value which is not a number never gets there, so it could not be
+        # stalled
         failing = Thread.new do
-          expect { instrument('/a', 'not a number') }.to raise_error(ArgumentError)
+          expect { instrument('/a', -1) }.to raise_error(ArgumentError)
         end
         entered.pop # {path: '/a'} is reserved by the record which is about to fail
 
@@ -122,8 +134,8 @@ describe Fluent::Plugin::Prometheus::Metric do
         pending_call = Thread.new { instrument('/a') }
         entered.pop # {path: '/a'} is reserved and being instrumented
 
-        # joins that reservation and fails, without owning the slot
-        expect { instrument('/a', 'not a number') }.to raise_error(ArgumentError)
+        # joins that reservation and fails in the client, without owning the slot
+        expect { instrument('/a', -1) }.to raise_error(ArgumentError)
 
         resume << true
         pending_call.join
@@ -139,7 +151,7 @@ describe Fluent::Plugin::Prometheus::Metric do
         succeeding_resume = Queue.new
         allow(client_counter).to receive(:increment).and_wrap_original do |original, *args, **kwargs|
           case kwargs[:by]
-          when 'not a number'
+          when -1
             failing_entered << true
             failing_resume.pop
           when 2
@@ -150,7 +162,7 @@ describe Fluent::Plugin::Prometheus::Metric do
         end
 
         failing = Thread.new do
-          expect { instrument('/a', 'not a number') }.to raise_error(ArgumentError)
+          expect { instrument('/a', -1) }.to raise_error(ArgumentError)
         end
         failing_entered.pop # {path: '/a'} is reserved
 
@@ -166,6 +178,44 @@ describe Fluent::Plugin::Prometheus::Metric do
         expect { instrument('/b') }.to raise_error(Fluent::Plugin::Prometheus::LabelSetLimitError)
         expect(client_counter.values.keys).to eq([{path: '/a'}])
       end
+    end
+  end
+
+  # Summary#observe increments the count and the sum one after the other, so a
+  # value which is not a number leaves the count incremented and raises on the
+  # sum. Giving the slot back would not take that half instrumented label set
+  # away from the client, so the value is refused before it reaches either.
+  describe 'a summary of a value which is not a number' do
+    let(:element) do
+      Fluent::Config::Element.new(
+        'metric', '',
+        {
+          'name' => 'limited',
+          'type' => 'summary',
+          'desc' => 'Something foo.',
+          'key' => 'foo',
+          'max_series_per_metric' => max_series_per_metric.to_s,
+        },
+        [Fluent::Config::Element.new('labels', '', {'path' => '$.path'}, [])]
+      )
+    end
+    let(:metric) { Fluent::Plugin::Prometheus::Summary.new(element, registry, {}, {}) }
+    let(:client_summary) do
+      metric
+      registry.get(:limited)
+    end
+
+    it 'leaves the client holding nothing' do
+      expect { instrument('/a', 'not a number') }.to raise_error(ArgumentError)
+
+      expect(client_summary.values).to be_empty
+    end
+
+    it 'does not take a slot' do
+      expect { instrument('/a', 'not a number') }.to raise_error(ArgumentError)
+
+      expect { instrument('/b', 2) }.not_to raise_error
+      expect(client_summary.values.keys).to eq([{path: '/b'}])
     end
   end
 
