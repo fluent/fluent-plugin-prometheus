@@ -307,6 +307,11 @@ with the same `name`, in one plugin or in two, share one count. Each of them
 refuses a new label set once that shared count reaches its own limit, so a
 section which stays at `0` adds label sets without counting them.
 
+The count is per worker process as well, since a worker has its own registry and
+exposes the metrics it holds itself. With `workers N`, a metric can hold up to N
+times `max_series_per_metric` label sets in total, so divide the number of label
+sets the metric may reach by the number of workers.
+
 A record which fails to be instrumented, for example when the value of `key` is
 not a number, does not consume the limit. A pre-initialized label set
 (`initialized` and `<initlabels>`) consumes it from the start, since the metric
