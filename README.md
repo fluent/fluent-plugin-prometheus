@@ -305,7 +305,9 @@ stays unlimited with `0`:
 The label sets are counted per metric name, not per `<metric>` section: sections
 with the same `name`, in one plugin or in two, share one count. Each of them
 refuses a new label set once that shared count reaches its own limit, so a
-section which stays at `0` adds label sets without counting them.
+section which stays at `0` adds label sets without counting them. Its
+`<initlabels>` are counted anyway. They come from the configuration and their
+number is fixed. The metric holds them in every section.
 
 The count is per worker process as well, since a worker has its own registry and
 exposes the metrics it holds itself. With `workers N`, a metric can hold up to N
@@ -317,11 +319,49 @@ not a number, does not consume the limit. A pre-initialized label set
 (`initialized` and `<initlabels>`) consumes it from the start, since the metric
 holds it before any record arrives.
 
-A `<metric>` section is refused at startup with a configuration error when its
-limit is smaller than the number of its own `<initlabels>` label sets: the limit
-is already exceeded before any record arrives, so the metric could never take a
-new label set. A limit equal to that number is fine, since every label set of
-the metric is known in advance.
+A `<metric>` section is refused at startup with a configuration error when the
+`<initlabels>` label sets already fill its limit. The limit is exceeded before
+any record arrives, and the section can never take a new label set.
+
+These label sets are shared by every section with the same `name`. A section can
+be refused because of another section:
+
+```
+<metric>
+  name shared
+  type counter
+  desc Something foo.
+  max_series_per_metric 2
+  initialized true
+  <labels>
+    path $.path
+  </labels>
+  <initlabels>
+    path /a
+  </initlabels>
+  <initlabels>
+    path /b
+  </initlabels>
+</metric>
+<metric>
+  name shared               # the same name, so the 2 label sets count here too
+  type counter
+  desc Something foo.
+  max_series_per_metric 1   # refused: 2 label sets do not fit into 1
+  <labels>
+    path $.path
+  </labels>
+</metric>
+```
+
+The second section is refused even though it declares no `<initlabels>` of its
+own. The same happens when the first section sets `max_series_per_metric 0`.
+The metric holds its label sets in both cases. A limit equal to their number is
+fine because all label sets of the metric are known in advance.
+
+The check runs after every `<metric>` section of a plugin is read. It does not
+depend on the order of the sections. Sections that share a `name` across two
+plugins are only checked against the sections read before them.
 
 ##### Observing what the limit leaves out
 
