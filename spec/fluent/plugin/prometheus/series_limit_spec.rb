@@ -39,6 +39,25 @@ describe Fluent::Plugin::Prometheus::Metric do
     )
   end
 
+  # A <metric> section named 'shared', so that two of them instrument the same
+  # client metric.
+  def counter_element(limit, initlabels = nil)
+    attributes = {
+      'name' => 'shared',
+      'type' => 'counter',
+      'desc' => 'Something foo.',
+      'key' => 'foo',
+      'max_series_per_metric' => limit.to_s,
+    }
+    attributes['initialized'] = 'true' if initlabels
+
+    Fluent::Config::Element.new(
+      'metric', '', attributes,
+      [Fluent::Config::Element.new('labels', '', {'path' => '$.path'}, [])] +
+        Array(initlabels).map { |path| Fluent::Config::Element.new('initlabels', '', {'path' => path}, []) }
+    )
+  end
+
   describe 'max_series_per_metric' do
     it 'refuses a new label set once the limit is reached' do
       instrument('/a')
@@ -331,23 +350,6 @@ describe Fluent::Plugin::Prometheus::Metric do
     # Every section with this name instruments the same client metric. The
     # label sets from <initlabels> count in every section, even in one that
     # declares none. A section with no limit still adds its own to the count.
-    def counter_element(limit, initlabels = nil)
-      attributes = {
-        'name' => 'shared',
-        'type' => 'counter',
-        'desc' => 'Something foo.',
-        'key' => 'foo',
-        'max_series_per_metric' => limit.to_s,
-      }
-      attributes['initialized'] = 'true' if initlabels
-
-      Fluent::Config::Element.new(
-        'metric', '', attributes,
-        [Fluent::Config::Element.new('labels', '', {'path' => '$.path'}, [])] +
-          Array(initlabels).map { |path| Fluent::Config::Element.new('initlabels', '', {'path' => path}, []) }
-      )
-    end
-
     let(:five_initlabels) { ['/a', '/b', '/c', '/d', '/e'] }
 
     it 'refuses a section that has no <initlabels>' do
@@ -380,6 +382,42 @@ describe Fluent::Plugin::Prometheus::Metric do
 
       expect { limited.instrument({'foo' => 1, 'path' => '/new'}, expander) }
         .to raise_error(Fluent::Plugin::Prometheus::LabelSetLimitError)
+    end
+  end
+
+  describe 'reading the configuration again' do
+    # A reload builds the <metric> sections again against the registry the
+    # process already has, so the client metric keeps its label sets. Reading
+    # the configuration twice here does the same.
+    def instrument_through(metric, path)
+      metric.instrument({'foo' => 1, 'path' => path}, expander)
+    end
+
+    it 'does not count the label sets that records brought' do
+      # the section with the wider limit fills five slots of the set both
+      # sections share, which leaves none for the limit of three
+      wide, _narrow = build_metrics(counter_element(10), counter_element(3))
+      ['/a', '/b', '/c', '/d', '/e'].each { |path| instrument_through(wide, path) }
+
+      expect { build_metrics(counter_element(10), counter_element(3)) }.not_to raise_error
+    end
+
+    it 'accepts the same <initlabels> again' do
+      metric, = build_metrics(counter_element(3, ['/a', '/b', '/c']))
+      instrument_through(metric, '/a')
+
+      expect { build_metrics(counter_element(3, ['/a', '/b', '/c'])) }.not_to raise_error
+    end
+
+    it 'keeps counting an <initlabels> label set a record came on' do
+      # the client still holds the three label sets, so a limit of 2 does not
+      # fit them even though a record made one of them look like its own
+      metric, = build_metrics(counter_element(3, ['/a', '/b', '/c']))
+      instrument_through(metric, '/a')
+
+      expect { build_metrics(counter_element(2, ['/a', '/b', '/c'])) }
+        .to raise_error(Fluent::ConfigError,
+                        /already holds 3 label sets from <initlabels>.*max_series_per_metric is 2/)
     end
   end
 

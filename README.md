@@ -363,6 +363,16 @@ The check runs after every `<metric>` section of a plugin is read. It does not
 depend on the order of the sections. Sections that share a `name` across two
 plugins are only checked against the sections read before them.
 
+The check runs again when Fluentd reloads the configuration. It counts only the
+label sets from `<initlabels>`. It does not count the label sets that records
+brought, so the metric does not make the reload fail with the label sets it took
+while it was running.
+
+A reload does not clear the registry. The metric still holds the label sets from
+the `<initlabels>` of the old configuration, and the check counts them too. So
+it can refuse a new configuration which has fewer `<initlabels>` than the old
+one. Restart the worker to drop them.
+
 ##### Observing what the limit leaves out
 
 A dropped label set is not routed to `@ERROR`, because it is what the

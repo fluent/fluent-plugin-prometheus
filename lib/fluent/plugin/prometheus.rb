@@ -60,10 +60,12 @@ module Fluent
       # holding max_series_per_metric label sets of its own.
       class SeriesSet
         # The set is kept on the client metric, so that it is found again by
-        # every section and goes away with it. Metrics are built at
-        # configuration time, which is single threaded, so no lock is needed.
+        # every section. The registry does not drop its metrics, so the set is
+        # still there after a reload.
         IVAR = :@fluent_plugin_prometheus_series_set
 
+        # Sections are built at configuration time, which is single threaded,
+        # so this needs no lock.
         def self.of(client_metric)
           client_metric.instance_variable_get(IVAR) ||
             client_metric.instance_variable_set(IVAR, new)
@@ -74,8 +76,10 @@ module Fluent
           @mutex = Mutex.new
         end
 
-        def size
-          @mutex.synchronize { @series.size }
+        # Only <initlabels> come from the configuration. Counting a label set
+        # a record brought would refuse a good configuration after a reload.
+        def initial_size
+          @mutex.synchronize { @series.count { |_, state| state == :initial } }
         end
 
         # Checking the limit and taking the slot happen under the same lock, so
@@ -100,7 +104,19 @@ module Fluent
         # side already, so it has to be accounted for even when a concurrent
         # failure gave the reservation back in the meantime.
         def confirm(label)
-          @mutex.synchronize { @series[label] = :confirmed }
+          @mutex.synchronize do
+            # #initial_size has to keep counting it, so a record on it does not
+            # change where it came from
+            next if @series[label] == :initial
+
+            @series[label] = :confirmed
+          end
+        end
+
+        # The limit is not checked here either: a section which cannot hold
+        # these label sets is refused when the configuration is read.
+        def confirm_initial(label)
+          @mutex.synchronize { @series[label] = :initial }
         end
 
         # Gives a reserved slot back when the instrumentation failed, so that a
@@ -435,13 +451,14 @@ module Fluent
           metric
         end
 
-        # <initlabels> label sets go to the client at startup. Every
-        # <metric> section with the same name shares them, so reject a
-        # section which has no room for the label sets.
+        # <initlabels> label sets go to the client as soon as the
+        # configuration is read. Every <metric> section with the same name
+        # shares them, so reject a section which has no room for the label
+        # sets.
         def check_series_limit!
           return if @max_series_per_metric <= 0
           # two <initlabels> blocks with the same values make one label set
-          held = @series_set.size
+          held = @series_set.initial_size
           return if held <= @max_series_per_metric
 
           raise ConfigError, "metric #{@name} already holds #{held} label sets from <initlabels>, " \
@@ -480,13 +497,13 @@ module Fluent
 
           return unless @initialized
 
-          # The client gets them at startup even when this section has no limit.
-          # They take their slots in both cases. A section with the same name
-          # shares this set and has to see them. Their number is fixed by the
+          # The client gets them even when this section has no limit, so they
+          # take their slots in both cases. A section with the same name shares
+          # this set and has to see them. Their number is fixed by the
           # configuration. Counting them cannot leak like the label sets that
           # records bring.
           @base_initlabels.each do |initlabels|
-            @series_set.confirm(normalize_label_set(initlabels))
+            @series_set.confirm_initial(normalize_label_set(initlabels))
           end
         end
 
