@@ -1,3 +1,16 @@
+Release 2.3.0 - 2026/09/02
+
+	* in_prometheus: Change default bind address to 127.0.0.1. (#258)
+          This is incompatible behavior change.
+	* in_prometheus: Do not disclosure error details for client (#259)
+	* in_prometheus: Add `ignore_error_log_interval` parameter to suppress repeated error logs (#259,#264)
+          This introduces the log throttling feature.
+	* filter_prometheus: Do not let placeholders built from records override the tag ones (#262)
+	* out_prometheus: Fix a bug that a failing record never reached to @ERROR (#263)
+	* Support `max_series_per_metric` to limit label sets cardinarity. (#265)
+	* Refuse wrong <initlabels> which cannot fit into `max_series_per_metric` (#266,#267)
+          This blocks `max_series_per_metric` mis-configuration on startup.
+
 Release 2.2.2 - 2026/03/27
 
 	* in_prometheus: fix: Add IPv6 support for bind parameter (#240)
