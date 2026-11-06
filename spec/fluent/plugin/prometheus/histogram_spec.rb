@@ -24,15 +24,23 @@ describe Fluent::Plugin::Prometheus::Histogram do
   end
 
   it 'keeps integer and decimal buckets' do
-    expect(buckets_of('0.1, 1, 5, 10')).to eq([0.1, 1, 5, 10])
+    expect(buckets_of('0.1, 1, 5, 10')).to eql([0.1, 1, 5, 10])
+  end
+
+  it 'keeps buckets of three or more digits as floats, as before' do
+    expect(buckets_of('10, 100, 1000')).to eql([10, 100.0, 1000.0])
+  end
+
+  it 'keeps signed integer buckets as integers' do
+    expect(buckets_of('-5, 0, +5')).to eql([-5, 0, 5])
   end
 
   it 'parses decimal buckets without a leading zero' do
-    expect(buckets_of('.005, .01, .025')).to eq([0.005, 0.01, 0.025])
+    expect(buckets_of('.005, .01, .025')).to eql([0.005, 0.01, 0.025])
   end
 
   it 'parses buckets in exponent notation' do
-    expect(buckets_of('1e-3, 1e-2, 1.5e2')).to eq([0.001, 0.01, 150.0])
+    expect(buckets_of('1e-3, 1e-2, 1.5e2')).to eql([0.001, 0.01, 150.0])
   end
 
   it 'refuses a bucket which is not a number' do

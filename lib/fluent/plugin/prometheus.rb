@@ -656,8 +656,10 @@ module Fluent
           begin
             if element['buckets']
               buckets = element['buckets'].split(/,/).map(&:strip).map do |e|
-                # keep an integer as is, so that its `le` label stays "1", not "1.0"
-                e.match?(/\A\d+\z/) ? Integer(e, 10) : Float(e)
+                # keep the old result if it is right, so that existing `le` labels such as "100.0" stay the same
+                value = Float(e)
+                legacy = e[/\A\d+.\d+\Z/] ? e.to_f : e.to_i
+                legacy == value ? legacy : value
               rescue ArgumentError
                 raise ConfigError, "buckets in <metric> #{element['name']} must be numbers: #{element['buckets']}"
               end
