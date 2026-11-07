@@ -656,7 +656,12 @@ module Fluent
           begin
             if element['buckets']
               buckets = element['buckets'].split(/,/).map(&:strip).map do |e|
-                e[/\A\d+.\d+\Z/] ? e.to_f : e.to_i
+                # keep the old result if it is right, so that existing `le` labels such as "100.0" stay the same
+                value = Float(e)
+                legacy = e[/\A\d+.\d+\Z/] ? e.to_f : e.to_i
+                legacy == value ? legacy : value
+              rescue ArgumentError
+                raise ConfigError, "buckets in <metric> #{element['name']} must be numbers: #{element['buckets']}"
               end
               @histogram = registry.histogram(element['name'].to_sym, docstring: element['desc'], labels: @base_labels.keys, buckets: buckets)
             else
