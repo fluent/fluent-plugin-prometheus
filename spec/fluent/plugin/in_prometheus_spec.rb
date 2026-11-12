@@ -294,6 +294,38 @@ describe Fluent::Plugin::PrometheusInput do
     end
   end
 
+  describe '#run /aggregated_metrics' do
+    shared_examples 'aggregated metrics' do |encoding|
+      let(:config) { LOCAL_CONFIG + %[
+        content_encoding #{encoding}
+  ] }
+
+      it 'aggregates the metrics of the workers' do
+        driver.run(timeout: 1) do
+          registry = driver.instance.instance_variable_get(:@registry)
+          registry.counter(:test, docstring: "Testing metrics") unless registry.exist?(:test)
+          Net::HTTP.start("127.0.0.1", port) do |http|
+            req = Net::HTTP::Get.new("/aggregated_metrics")
+            req['accept-encoding'] = nil
+            res = http.request(req)
+            expect(res.code).to eq('200')
+            expect(res['content-encoding']).to eq(encoding)
+            body = encoding == 'gzip' ? Zlib::GzipReader.new(StringIO.new(res.body.to_s)).read : res.body
+            expect(body).to include("# HELP test Testing metrics")
+          end
+        end
+      end
+    end
+
+    context 'content_encoding identity' do
+      include_examples 'aggregated metrics', 'identity'
+    end
+
+    context 'content_encoding gzip' do
+      include_examples 'aggregated metrics', 'gzip'
+    end
+  end
+
   describe '#run_multi_workers' do
     context '/metrics' do
       Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
