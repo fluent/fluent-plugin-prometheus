@@ -4,6 +4,8 @@ require 'fluent/test/driver/input'
 
 require 'net/http'
 require 'zlib'
+require 'tmpdir'
+require 'fileutils'
 
 describe Fluent::Plugin::PrometheusInput do
   CONFIG = %[
@@ -153,6 +155,56 @@ describe Fluent::Plugin::PrometheusInput do
               res = http.request(req)
               expect(res.code).to eq('200')
             end
+          end
+        end
+      end
+
+      context 'when extra_conf is used with certificate_path and private_key_path' do
+        let(:tmpdir) { Dir.mktmpdir }
+        let(:key) { OpenSSL::PKey::RSA.new(2048) }
+        let(:cert) do
+          cert = OpenSSL::X509::Certificate.new
+          cert.version = 2
+          cert.serial = 1
+          cert.subject = cert.issuer = OpenSSL::X509::Name.parse('/CN=localhost')
+          cert.public_key = key.public_key
+          cert.not_before = Time.now - 60
+          cert.not_after = Time.now + 3600
+          cert.sign(key, OpenSSL::Digest::SHA256.new)
+          cert
+        end
+        let(:cert_path) { File.join(tmpdir, 'cert.pem').tap { |path| File.write(path, cert.to_pem) } }
+        let(:private_key_path) { File.join(tmpdir, 'key.pem').tap { |path| File.write(path, key.to_pem) } }
+        let(:config) do
+          %[
+            @type prometheus
+            bind 127.0.0.1
+            <ssl>
+              enable true
+              certificate_path #{cert_path}
+              private_key_path #{private_key_path}
+              extra_conf { "SSLVerifyClient": 0 }
+            </ssl>
+         ]
+        end
+
+        after { FileUtils.rm_rf(tmpdir) }
+
+        it 'serves the given certificate' do
+          driver.run(timeout: 1) do
+            Net::HTTP.start('127.0.0.1', port, verify_mode: OpenSSL::SSL::VERIFY_NONE, use_ssl: true) do |http|
+              res = http.request(Net::HTTP::Get.new('/metrics'))
+              expect(res.code).to eq('200')
+              expect(http.peer_cert.to_der).to eq(cert.to_der)
+            end
+          end
+        end
+
+        context 'when private_key_path holds the key itself instead of a path' do
+          let(:private_key_path) { %["#{key.to_pem.gsub("\n", '\n')}"] }
+
+          it 'raises an error that does not include the key' do
+            expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /\Afailed to read private_key_path \(Errno::\w+\)\z/) { |e| expect(e.cause).to be_nil }
           end
         end
       end
