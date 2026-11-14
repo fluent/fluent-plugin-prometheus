@@ -51,7 +51,7 @@ module Fluent::Plugin
           # Net::HTTP decodes the body by itself. The workers encode their
           # response with content_encoding, so decode it here as well.
           if response.headers['content-encoding']&.include?('gzip')
-            body = Zlib::GzipReader.new(StringIO.new(body)).read
+            body = Zlib.gunzip(body)
           end
 
           Response.new(response.status.to_s, body, response.headers)

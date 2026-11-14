@@ -323,6 +323,26 @@ describe Fluent::Plugin::PrometheusInput do
 
     context 'content_encoding gzip' do
       include_examples 'aggregated metrics', 'gzip'
+
+      it 'aggregates a non-ASCII label value when the default external encoding is US-ASCII' do
+        default_external = Encoding.default_external
+        driver.run(timeout: 1) do
+          registry = driver.instance.instance_variable_get(:@registry)
+          counter = registry.exist?(:test_label) ? registry.get(:test_label) : registry.counter(:test_label, docstring: "Testing labels", labels: [:msg])
+          counter.increment(labels: { msg: "\u65e5\u672c\u8a9e" })
+          Encoding.default_external = Encoding::US_ASCII
+          Net::HTTP.start("127.0.0.1", port) do |http|
+            req = Net::HTTP::Get.new("/aggregated_metrics")
+            req['accept-encoding'] = nil
+            res = http.request(req)
+            expect(res.code).to eq('200')
+            body = Zlib.gunzip(res.body.to_s).force_encoding(Encoding::UTF_8)
+            expect(body).to include(%[test_label{msg="\u65e5\u672c\u8a9e"} 1.0])
+          end
+        end
+      ensure
+        Encoding.default_external = default_external
+      end
     end
   end
 
