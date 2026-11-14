@@ -199,6 +199,14 @@ describe Fluent::Plugin::PrometheusInput do
             end
           end
         end
+
+        context 'when private_key_path holds the key itself instead of a path' do
+          let(:private_key_path) { %["#{key.to_pem.gsub("\n", '\n')}"] }
+
+          it 'raises an error that does not include the key' do
+            expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /\Afailed to read private_key_path \(Errno::\w+\)\z/) { |e| expect(e.cause).to be_nil }
+          end
+        end
       end
 
       context 'cert_path and private_key_path combination' do
