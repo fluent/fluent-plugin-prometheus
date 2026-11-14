@@ -155,6 +155,37 @@ describe Fluent::Plugin::PrometheusInput do
             end
           end
         end
+
+        context 'with content_encoding gzip' do
+          let(:config) do
+            %[
+              @type prometheus
+              bind 127.0.0.1
+              content_encoding gzip
+              <ssl>
+                enable true
+                extra_conf { "SSLCertName": [["CN", "nobody"], ["DC", "example"]] }
+              </ssl>
+           ]
+          end
+
+          %w[/metrics /aggregated_metrics].each do |path|
+            it "sends the Content-Encoding header on #{path}" do
+              driver.run(timeout: 1) do
+                registry = driver.instance.instance_variable_get(:@registry)
+                registry.counter(:test, docstring: "Testing metrics") unless registry.exist?(:test)
+                Net::HTTP.start('127.0.0.1', port, verify_mode: OpenSSL::SSL::VERIFY_NONE, use_ssl: true) do |http|
+                  req = Net::HTTP::Get.new(path)
+                  req['accept-encoding'] = nil
+                  res = http.request(req)
+                  expect(res.code).to eq('200')
+                  expect(res['content-encoding']).to eq('gzip')
+                  expect(Zlib.gunzip(res.body.to_s)).to include("# HELP test Testing metrics")
+                end
+              end
+            end
+          end
+        end
       end
 
       context 'cert_path and private_key_path combination' do

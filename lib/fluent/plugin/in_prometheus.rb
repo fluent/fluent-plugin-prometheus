@@ -195,7 +195,7 @@ module Fluent::Plugin
       @webrick_server.mount_proc(@metrics_path) do |_req, res|
         status, header, body = all_metrics
         res.status = status
-        res['Content-Type'] = header['Content-Type']
+        header.each { |name, value| res[name] = value }
         res.body = body
         res
       end
@@ -203,7 +203,7 @@ module Fluent::Plugin
       @webrick_server.mount_proc(@aggregated_metrics_path) do |_req, res|
         status, header, body = all_workers_metrics
         res.status = status
-        res['Content-Type'] = header['Content-Type']
+        header.each { |name, value| res[name] = value }
         res.body = body
         res
       end
