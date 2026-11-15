@@ -1,4 +1,5 @@
 require 'async'
+require 'zlib'
 
 module Fluent::Plugin
   class PrometheusInput
@@ -46,7 +47,14 @@ module Fluent::Plugin
             raise error
           end
 
-          Response.new(response.status.to_s, response.read || '', response.headers)
+          body = response.read || ''
+          # Net::HTTP decodes the body by itself. The workers encode their
+          # response with content_encoding, so decode it here as well.
+          if response.headers['content-encoding']&.include?('gzip')
+            body = Zlib.gunzip(body)
+          end
+
+          Response.new(response.status.to_s, body, response.headers)
         end
       end
     end

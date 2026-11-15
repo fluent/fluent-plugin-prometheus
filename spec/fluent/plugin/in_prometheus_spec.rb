@@ -294,6 +294,58 @@ describe Fluent::Plugin::PrometheusInput do
     end
   end
 
+  describe '#run /aggregated_metrics' do
+    shared_examples 'aggregated metrics' do |encoding|
+      let(:config) { LOCAL_CONFIG + %[
+        content_encoding #{encoding}
+  ] }
+
+      it 'aggregates the metrics of the workers' do
+        driver.run(timeout: 1) do
+          registry = driver.instance.instance_variable_get(:@registry)
+          registry.counter(:test, docstring: "Testing metrics") unless registry.exist?(:test)
+          Net::HTTP.start("127.0.0.1", port) do |http|
+            req = Net::HTTP::Get.new("/aggregated_metrics")
+            req['accept-encoding'] = nil
+            res = http.request(req)
+            expect(res.code).to eq('200')
+            expect(res['content-encoding']).to eq(encoding)
+            body = encoding == 'gzip' ? Zlib::GzipReader.new(StringIO.new(res.body.to_s)).read : res.body
+            expect(body).to include("# HELP test Testing metrics")
+          end
+        end
+      end
+    end
+
+    context 'content_encoding identity' do
+      include_examples 'aggregated metrics', 'identity'
+    end
+
+    context 'content_encoding gzip' do
+      include_examples 'aggregated metrics', 'gzip'
+
+      it 'aggregates a non-ASCII label value when the default external encoding is US-ASCII' do
+        default_external = Encoding.default_external
+        driver.run(timeout: 1) do
+          registry = driver.instance.instance_variable_get(:@registry)
+          counter = registry.exist?(:test_label) ? registry.get(:test_label) : registry.counter(:test_label, docstring: "Testing labels", labels: [:msg])
+          counter.increment(labels: { msg: "\u65e5\u672c\u8a9e" })
+          Encoding.default_external = Encoding::US_ASCII
+          Net::HTTP.start("127.0.0.1", port) do |http|
+            req = Net::HTTP::Get.new("/aggregated_metrics")
+            req['accept-encoding'] = nil
+            res = http.request(req)
+            expect(res.code).to eq('200')
+            body = Zlib.gunzip(res.body.to_s).force_encoding(Encoding::UTF_8)
+            expect(body).to include(%[test_label{msg="\u65e5\u672c\u8a9e"} 1.0])
+          end
+        end
+      ensure
+        Encoding.default_external = default_external
+      end
+    end
+  end
+
   describe '#run_multi_workers' do
     context '/metrics' do
       Fluent::SystemConfig.overwrite_system_config('workers' => 4) do
