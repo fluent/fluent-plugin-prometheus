@@ -195,7 +195,7 @@ module Fluent::Plugin
       @webrick_server.mount_proc(@metrics_path) do |_req, res|
         status, header, body = all_metrics
         res.status = status
-        res['Content-Type'] = header['Content-Type']
+        copy_webrick_headers(header, res)
         res.body = body
         res
       end
@@ -203,13 +203,20 @@ module Fluent::Plugin
       @webrick_server.mount_proc(@aggregated_metrics_path) do |_req, res|
         status, header, body = all_workers_metrics
         res.status = status
-        res['Content-Type'] = header['Content-Type']
+        copy_webrick_headers(header, res)
         res.body = body
         res
       end
 
       thread_create(:in_prometheus_webrick) do
         @webrick_server.start
+      end
+    end
+
+    def copy_webrick_headers(header, res)
+      header.each do |name, value|
+        next if name == 'Content-Encoding' && value == 'identity'
+        res[name] = value
       end
     end
 
