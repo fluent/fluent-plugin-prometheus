@@ -204,7 +204,10 @@ describe Fluent::Plugin::PrometheusInput do
           let(:private_key_path) { %["#{key.to_pem.gsub("\n", '\n')}"] }
 
           it 'raises an error that does not include the key' do
-            expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /\Afailed to read private_key_path \(Errno::\w+\)\z/) { |e| expect(e.cause).to be_nil }
+            expect { driver.run(timeout: 1) }.to raise_error(SystemCallError) { |e|
+              expect(e.message).to eq(e.class.new('private_key_path').message)
+              expect(e.cause).to be_nil
+            }
           end
         end
       end
