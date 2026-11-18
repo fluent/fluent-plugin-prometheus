@@ -178,7 +178,12 @@ module Fluent::Plugin
         end
 
         if @ssl['private_key_path']
-          key = OpenSSL::PKey.read(@ssl['private_key_path'])
+          begin
+            key_contents = File.read(@ssl['private_key_path'])
+          rescue SystemCallError => e
+            raise e.class, 'private_key_path', cause: nil
+          end
+          key = OpenSSL::PKey.read(key_contents)
           ssl_config[:SSLPrivateKey] = key
         end
 
