@@ -1,4 +1,5 @@
 require 'fluent/plugin/input'
+require 'fluent/version'
 require 'fluent/plugin/prometheus'
 require 'fluent/plugin/prometheus_metrics'
 require 'net/http'
@@ -84,14 +85,18 @@ module Fluent::Plugin
 
       proto = @secure ? :tls : :tcp
 
-      # IPv6 + TLS combination is not currently supported
-      if @bind.include?(':') && @secure
-        raise Fluent::ConfigError, 'IPv6 with <transport tls> is not currently supported. Use bind 0.0.0.0 with TLS, or bind ::1 without TLS.'
+      # extra_conf is passed to WEBrick as SSL options, so it needs WEBrick.
+      # IPv6 needs WEBrick only on fluentd older than v1.20.0, whose http_server
+      # helper can't build a URI for an IPv6 bind address.
+      ipv6 = @bind.include?(':')
+      use_webrick = (@ssl && @ssl['enable'] && @ssl['extra_conf']) || (ipv6 && !http_server_supports_ipv6?)
+
+      # The WEBrick server only takes TLS settings from the deprecated <ssl> section
+      if ipv6 && @secure && use_webrick
+        raise Fluent::ConfigError, 'IPv6 with TLS needs fluentd v1.20.0 or later and <transport tls> instead of <ssl> extra_conf. Use bind 0.0.0.0 with TLS, or bind ::1 without TLS.'
       end
 
-      # Use webrick for IPv6 or SSL extra_conf
-      # The http_server helper has issues with IPv6 URI construction
-      if (@ssl && @ssl['enable'] && @ssl['extra_conf']) || @bind.include?(':')
+      if use_webrick
         start_webrick
         return
       end
@@ -148,10 +153,19 @@ module Fluent::Plugin
     private
 
     # For compatiblity because http helper can't support extra_conf option
-    # Also used for IPv6 addresses since http helper has IPv6 URI issues
+    # Also used for IPv6 addresses on fluentd older than v1.20.0
     def start_webrick
-      require 'webrick/https'
-      require 'webrick'
+      begin
+        require 'webrick/https'
+        require 'webrick'
+      rescue LoadError
+        reason = if @ssl && @ssl['enable'] && @ssl['extra_conf']
+                   '<ssl> extra_conf'
+                 else
+                   'an IPv6 bind address on fluentd older than v1.20.0'
+                 end
+        raise Fluent::ConfigError, "in_prometheus needs the webrick gem for #{reason}. Install webrick, or use <transport tls> and fluentd v1.20.0 or later instead."
+      end
 
       config = {
         BindAddress: @bind,
@@ -216,6 +230,14 @@ module Fluent::Plugin
       thread_create(:in_prometheus_webrick) do
         @webrick_server.start
       end
+    end
+
+    # The http_server helper supports IPv6 bind addresses since fluentd v1.20.0
+    # (fluent/fluentd#5239).
+    HTTP_SERVER_IPV6_FLUENTD_VERSION = Gem::Version.new('1.20.0')
+
+    def http_server_supports_ipv6?
+      Gem::Version.new(Fluent::VERSION) >= HTTP_SERVER_IPV6_FLUENTD_VERSION
     end
 
     def copy_webrick_headers(header, res)
