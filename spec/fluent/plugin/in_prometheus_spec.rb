@@ -125,8 +125,109 @@ describe Fluent::Plugin::PrometheusInput do
          ]
       end
 
-      it 'raises ConfigError for unsupported combination' do
-        expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /IPv6 with <transport tls> is not currently supported/)
+      it 'returns 200 with the http_server helper on fluentd v1.20.0 or later' do
+        skip 'IPv6 not available on this system' unless ipv6_enabled?
+        skip 'needs fluentd v1.20.0 or later' if Gem::Version.new(Fluent::VERSION) < Gem::Version.new('1.20.0')
+
+        expect(driver.instance).not_to receive(:start_webrick)
+        driver.run(timeout: 3) do
+          Net::HTTP.start('::1', port, verify_mode: OpenSSL::SSL::VERIFY_NONE, use_ssl: true) do |http|
+            req = Net::HTTP::Get.new('/metrics')
+            res = http.request(req)
+            expect(res.code).to eq('200')
+          end
+        end
+      end
+
+      it 'raises ConfigError on fluentd older than v1.20.0' do
+        stub_const('Fluent::VERSION', '1.19.4')
+        expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /IPv6 with TLS needs fluentd v1.20.0 or later/)
+      end
+    end
+
+    ['::', '0:0:0:0:0:0:0:0', 'fe80::1%eth0'].each do |address|
+      context "IPv6 with TLS on #{address}" do
+        let(:config) do
+          %[
+             @type prometheus
+             bind #{address}
+             <transport tls>
+               insecure true
+             </transport>
+           ]
+        end
+
+        it 'raises ConfigError even on fluentd v1.20.0 or later' do
+          stub_const('Fluent::VERSION', '1.20.0')
+          expect(driver.instance).not_to receive(:start_webrick)
+          expect(driver.instance).not_to receive(:http_server_create_http_server)
+          expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /a specific bind address instead of ::/)
+        end
+      end
+    end
+
+    context 'IPv6 with <ssl> extra_conf' do
+      let(:config) do
+        %[
+           @type prometheus
+           bind ::1
+           <ssl>
+             enable true
+             extra_conf {}
+           </ssl>
+         ]
+      end
+
+      it 'raises ConfigError before any server starts, even on fluentd v1.20.0 or later' do
+        stub_const('Fluent::VERSION', '1.20.0')
+        expect(driver.instance).not_to receive(:start_webrick)
+        expect(driver.instance).not_to receive(:http_server_create_http_server)
+        expect { driver.run(timeout: 1) }.to raise_error(Fluent::ConfigError, /IPv6 with TLS needs fluentd v1.20.0 or later/)
+      end
+    end
+
+    context 'IPv6 without TLS' do
+      let(:config) do
+        %[
+           @type prometheus
+           bind ::1
+         ]
+      end
+
+      it 'uses the http_server helper on fluentd v1.20.0 or later' do
+        stub_const('Fluent::VERSION', '1.20.0')
+        expect(driver.instance).not_to receive(:start_webrick)
+        expect(driver.instance).to receive(:http_server_create_http_server).with(:in_prometheus_server, hash_including(addr: '::1', proto: :tcp))
+        driver.run(timeout: 1)
+      end
+
+      it 'falls back to webrick on fluentd older than v1.20.0' do
+        stub_const('Fluent::VERSION', '1.19.4')
+        expect(driver.instance).to receive(:start_webrick).once
+        expect(driver.instance).not_to receive(:http_server_create_http_server)
+        driver.run(timeout: 1)
+      end
+    end
+
+    # The helper doesn't set IPV6_V6ONLY and can't build a URI with a zone ID,
+    # so these binds stay on WEBrick as before.
+    ['::', '0:0:0:0:0:0:0:0', 'fe80::1%eth0'].each do |address|
+      context "IPv6 without TLS on #{address}" do
+        let(:config) do
+          %[
+             @type prometheus
+             bind #{address}
+           ]
+        end
+
+        it 'stays on webrick on fluentd v1.20.0 or later' do
+          stub_const('Fluent::VERSION', '1.20.0')
+          expect(driver.instance).to receive(:start_webrick).once do
+            expect(driver.instance.bind).to eq(address)
+          end
+          expect(driver.instance).not_to receive(:http_server_create_http_server)
+          driver.run(timeout: 1)
+        end
       end
     end
 
@@ -516,6 +617,14 @@ describe Fluent::Plugin::PrometheusInput do
 
     context 'IPv6 any address ::' do
       include_examples 'IPv6 server binding', '::', '::1', 'binds on :: and connects via ::1'
+
+      it 'is IPv6 only and refuses IPv4 connections' do
+        skip 'IPv6 not available on this system' unless ipv6_enabled?
+
+        driver.run(timeout: 3) do
+          expect { TCPSocket.new('127.0.0.1', port).close }.to raise_error(Errno::ECONNREFUSED)
+        end
+      end
     end
 
     context 'pre-bracketed IPv6 address [::1]' do
